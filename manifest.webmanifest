@@ -1,0 +1,16 @@
+{
+  "name": "INSERT COIN",
+  "short_name": "INSERT COIN",
+  "description": "Un hub de juegos para jugar de a dos, cada uno desde su celular. Empezá por la Trivia de Cine.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0D0221",
+  "theme_color": "#0D0221",
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

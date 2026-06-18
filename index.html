@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <!-- viewport-fit=cover: usa toda la pantalla del celu, respetando el notch -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0D0221" />
+  <title>INSERT COIN</title>
+
+  <!-- PWA: permite "agregar a la pantalla de inicio" -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
+  <link rel="icon" type="image/png" href="assets/icons/icon-192.png" />
+
+  <!-- Tipografías retro -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Chakra+Petch:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <!-- Estilos -->
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/hub.css" />
+  <link rel="stylesheet" href="js/games/trivia/trivia.css" />
+</head>
+<body>
+  <div class="app" id="app">
+
+    <!-- ===================== PANTALLA 1: INICIO (portada) ===================== -->
+    <section class="screen inicio" id="screen-inicio">
+      <div class="inicio-overlay">
+        <button class="btn btn--amarillo blink" id="btn-start">▶ Press Start</button>
+        <!-- Botón secundario para reanudar una sala anterior (se muestra por JS) -->
+        <button class="btn btn--ghost hidden" id="btn-resume">↩ Volver a tu sala</button>
+        <p class="inicio-sub">2 players · online · un juego para los dos</p>
+      </div>
+    </section>
+
+    <!-- ===================== PANTALLA 2: PERFIL ===================== -->
+    <section class="screen" id="screen-perfil" hidden>
+      <div class="topbar">
+        <button class="icon-btn" data-volver="screen-inicio">‹</button>
+        <span class="titulo">¿Quién sos?</span>
+      </div>
+
+      <div class="stack">
+        <!-- Atajos para los nombres por defecto -->
+        <div class="row">
+          <button class="btn btn--ghost btn--small" data-quickname="Nico">Soy Nico</button>
+          <button class="btn btn--ghost btn--small" data-quickname="Agus">Soy Agus</button>
+        </div>
+
+        <label class="small muted">Tu apodo</label>
+        <input class="input" id="in-nick" maxlength="14" placeholder="Tu nombre…" autocomplete="off" />
+
+        <label class="small muted mt">Elegí tu avatar</label>
+        <div class="avatars" id="avatars"><!-- se llena por JS --></div>
+
+        <div class="stack mt">
+          <button class="btn" id="btn-crear">🎮 Crear sala</button>
+          <button class="btn btn--ghost" id="btn-ir-unirse">🔑 Unirse con código</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== PANTALLA 3: UNIRSE ===================== -->
+    <section class="screen" id="screen-unirse" hidden>
+      <div class="topbar">
+        <button class="icon-btn" data-volver="screen-perfil">‹</button>
+        <span class="titulo">Unirse a una sala</span>
+      </div>
+      <div class="stack center" style="margin-top:8vh">
+        <p class="muted">Pedile el código a la otra persona y escribilo acá:</p>
+        <input class="input input--code" id="in-code" maxlength="4" placeholder="••••"
+               autocomplete="off" inputmode="text" />
+        <button class="btn btn--magenta mt" id="btn-entrar">Entrar</button>
+        <p class="small muted" id="unirse-error" style="color:var(--rojo)"></p>
+      </div>
+    </section>
+
+    <!-- ===================== PANTALLA 4: SALA / MENÚ ===================== -->
+    <section class="screen" id="screen-sala" hidden>
+      <div class="topbar">
+        <span class="titulo">INSERT COIN</span>
+        <button class="code-chip" id="btn-copiar-code" title="Tocá para copiar">····</button>
+      </div>
+
+      <!-- Marcador acumulado -->
+      <div class="scoreboard mt" id="scoreboard">
+        <div class="lado p1">
+          <div class="nom" id="sb-nom1">Jugador 1</div>
+          <div class="pts" id="sb-pts1">0</div>
+        </div>
+        <div class="vs">VS</div>
+        <div class="lado p2">
+          <div class="nom" id="sb-nom2">Esperando…</div>
+          <div class="pts" id="sb-pts2">0</div>
+        </div>
+      </div>
+
+      <!-- Jugadores conectados -->
+      <div class="players mt" id="players"><!-- chips por JS --></div>
+
+      <!-- Aviso de esperando al segundo jugador -->
+      <div class="card mt center" id="aviso-esperando">
+        <p class="muted small">Compartí el código para que entre la otra persona 👇</p>
+        <p class="pixel neon-amarillo" id="code-grande" style="font-size:1.6rem;margin-top:8px">····</p>
+        <button class="btn btn--ghost btn--small mt" id="btn-compartir">📤 Compartir invitación</button>
+      </div>
+
+      <!-- Menú de juegos -->
+      <h3 class="mt" style="margin-bottom:10px">🕹️ Elegí un juego</h3>
+      <div class="game-grid" id="game-grid"><!-- tarjetas por JS --></div>
+
+      <div class="spacer"></div>
+      <button class="btn btn--ghost btn--small mt" id="btn-salir-sala" style="width:100%">Salir de la sala</button>
+    </section>
+
+    <!-- ===================== PANTALLA 5: JUEGO ===================== -->
+    <section class="screen" id="screen-juego" hidden>
+      <div class="topbar">
+        <button class="icon-btn" id="btn-volver-menu" title="Volver al menú">‹</button>
+        <span class="titulo" id="juego-titulo">Juego</span>
+      </div>
+      <!-- Acá cada módulo de juego dibuja su interfaz -->
+      <div id="juego-container" style="flex:1;display:flex;flex-direction:column"></div>
+    </section>
+
+    <!-- ===================== CHAT (overlay) ===================== -->
+    <button class="chat-fab hidden" id="chat-fab">💬<span class="badge-num hidden" id="chat-badge">0</span></button>
+    <div class="chat-wrap hidden" id="chat-wrap">
+      <div class="chat-panel">
+        <div class="chat-head">
+          <span class="titulo">Chat</span>
+          <div class="spacer"></div>
+          <button class="icon-btn" id="chat-cerrar">✕</button>
+        </div>
+        <div class="chat-msgs" id="chat-msgs"></div>
+        <form class="chat-form" id="chat-form">
+          <input class="input" id="chat-input" maxlength="200" placeholder="Escribí algo…" autocomplete="off" />
+          <button class="btn btn--small" type="submit" style="min-width:54px">➤</button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===================== SCRIPTS ===================== -->
+  <!-- Firebase (SDK "compat": expone la variable global `firebase`) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+  <!-- ★ Tus claves de Firebase (este archivo lo editás vos) -->
+  <script src="js/firebase-config.js"></script>
+
+  <!-- Núcleo de la app (el orden importa) -->
+  <script src="js/firebase.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/room.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/scoreboard.js"></script>
+  <script src="js/game-registry.js"></script>
+
+  <!-- Juegos -->
+  <script src="js/games/trivia/preguntas.js"></script>
+  <script src="js/games/trivia/trivia.js"></script>
+
+  <!-- Arranque (debe ir último) -->
+  <script src="js/hub.js"></script>
+
+  <!-- Registro del Service Worker (PWA) -->
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () =>
+        navigator.serviceWorker.register("service-worker.js").catch(() => {})
+      );
+    }
+  </script>
+</body>
+</html>

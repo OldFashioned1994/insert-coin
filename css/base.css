@@ -1,0 +1,210 @@
+/* ============================================================================
+   INSERT COIN — base.css
+   Sistema de diseño base: estética retro arcade / neón.
+   Acá viven las variables de color, la tipografía, el fondo y los componentes
+   reutilizables (botones, inputs, tarjetas). Todo pensado mobile-first.
+   ============================================================================ */
+
+/* --- Tipografías retro (se cargan desde Google Fonts en el index.html) ----- */
+/* "Press Start 2P": tipografía pixelada para títulos/logo (poco texto).      */
+/* "Chakra Petch": tipografía techy pero legible para el cuerpo.              */
+
+/* --- Variables de color y medidas ----------------------------------------- */
+:root {
+  /* Paleta neón */
+  --fondo:        #0D0221;  /* violeta casi negro, el fondo general */
+  --fondo-2:      #190634;  /* superficie un poco más clara (tarjetas) */
+  --fondo-3:      #25094a;  /* superficie elevada / hover */
+  --cian:         #00F0FF;  /* neón principal */
+  --magenta:      #FF2E97;  /* neón secundario / jugador 2 */
+  --amarillo:     #FFD300;  /* acento "INSERT COIN" */
+  --verde:        #00FFA3;  /* aciertos */
+  --rojo:         #FF3B5C;  /* errores */
+  --texto:        #EAEafe;  /* texto principal, casi blanco */
+  --texto-tenue:  #9b8fc4;  /* texto secundario */
+  --borde:        #3a1f6b;  /* bordes suaves */
+
+  /* Glow (resplandor neón) reutilizable */
+  --glow-cian:    0 0 6px rgba(0,240,255,.8), 0 0 18px rgba(0,240,255,.45);
+  --glow-magenta: 0 0 6px rgba(255,46,151,.8), 0 0 18px rgba(255,46,151,.45);
+  --glow-amarillo:0 0 6px rgba(255,211,0,.85), 0 0 20px rgba(255,211,0,.5);
+
+  /* Medidas */
+  --radio:        14px;   /* radio de bordes general */
+  --gap:          14px;   /* separación estándar */
+  --max-ancho:    480px;  /* ancho máximo: es una app de celular */
+}
+
+/* --- Reset mínimo ---------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: "Chakra Petch", system-ui, -apple-system, sans-serif;
+  color: var(--texto);
+  background-color: var(--fondo);
+  /* Fondo con una grilla sutil tipo "piso de arcade" + brillo radial */
+  background-image:
+    radial-gradient(1200px 600px at 50% -10%, rgba(124,92,255,.18), transparent 60%),
+    linear-gradient(rgba(124,92,255,.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124,92,255,.06) 1px, transparent 1px);
+  background-size: 100% 100%, 36px 36px, 36px 36px;
+  /* Evita el resaltado azul al tocar botones en el celu */
+  -webkit-tap-highlight-color: transparent;
+  /* Respeta los bordes redondeados / notch del celular */
+  padding:
+    env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+  overflow: hidden; /* cada pantalla maneja su propio scroll */
+}
+
+/* Líneas de escaneo (scanlines) sutiles para el toque "monitor viejo" */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom, transparent 0 2px, rgba(0,0,0,.10) 2px 3px);
+  z-index: 9999;
+  opacity: .5;
+}
+
+/* --- Tipografía ------------------------------------------------------------ */
+.pixel { font-family: "Press Start 2P", "Chakra Petch", monospace; }
+
+h1, h2, h3 { font-weight: 700; line-height: 1.2; }
+
+/* Texto con resplandor neón (utilidades) */
+.neon-cian    { color: var(--cian);    text-shadow: var(--glow-cian); }
+.neon-magenta { color: var(--magenta); text-shadow: var(--glow-magenta); }
+.neon-amarillo{ color: var(--amarillo);text-shadow: var(--glow-amarillo); }
+
+/* --- Sistema de "pantallas" (cada vista ocupa todo el alto) ---------------- */
+/* La app muestra una pantalla por vez. Se ocultan con el atributo [hidden].  */
+.app {
+  position: relative;
+  width: 100%;
+  max-width: var(--max-ancho);
+  height: 100dvh;            /* dvh = alto real visible en el celu */
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 18px calc(22px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  animation: aparecer .25s ease both;
+}
+.screen[hidden] { display: none; }
+
+@keyframes aparecer {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* --- Botones --------------------------------------------------------------- */
+.btn {
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: .5px;
+  color: var(--fondo);
+  background: var(--cian);
+  border: none;
+  border-radius: var(--radio);
+  padding: 16px 20px;
+  min-height: 54px;              /* objetivo táctil cómodo para el dedo */
+  cursor: pointer;
+  text-transform: uppercase;
+  box-shadow: var(--glow-cian);
+  transition: transform .08s ease, filter .15s ease, opacity .15s ease;
+  width: 100%;
+}
+.btn:active { transform: translateY(2px) scale(.99); }
+.btn:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+
+.btn--magenta { background: var(--magenta); box-shadow: var(--glow-magenta); }
+.btn--amarillo{ background: var(--amarillo);box-shadow: var(--glow-amarillo); }
+
+/* Botón "fantasma" (borde neón, fondo transparente) */
+.btn--ghost {
+  background: transparent;
+  color: var(--cian);
+  border: 2px solid var(--cian);
+  box-shadow: var(--glow-cian);
+  text-shadow: var(--glow-cian);
+}
+.btn--small { min-height: 42px; padding: 10px 14px; font-size: .85rem; width: auto; }
+
+/* --- Inputs ---------------------------------------------------------------- */
+.input {
+  font-family: inherit;
+  font-size: 1.1rem;
+  color: var(--texto);
+  background: var(--fondo-2);
+  border: 2px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 14px 16px;
+  width: 100%;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.input:focus { border-color: var(--cian); box-shadow: var(--glow-cian); }
+.input::placeholder { color: var(--texto-tenue); }
+
+/* Input especial para el código de sala: grande y centrado */
+.input--code {
+  text-align: center;
+  letter-spacing: 8px;
+  font-size: 1.8rem;
+  text-transform: uppercase;
+  font-family: "Press Start 2P", monospace;
+}
+
+/* --- Tarjetas -------------------------------------------------------------- */
+.card {
+  background: var(--fondo-2);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 16px;
+}
+
+/* --- Utilidades ------------------------------------------------------------ */
+.stack   { display: flex; flex-direction: column; gap: var(--gap); }
+.row     { display: flex; gap: var(--gap); align-items: center; }
+.center  { align-items: center; text-align: center; }
+.spacer  { flex: 1; }
+.muted   { color: var(--texto-tenue); }
+.small   { font-size: .85rem; }
+.hidden  { display: none !important; }
+.mt      { margin-top: var(--gap); }
+.full    { width: 100%; }
+
+/* Parpadeo tipo "INSERT COIN" */
+.blink { animation: blink 1.1s steps(2, start) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Cartel pequeño de estado (ej: "Conectando…") */
+.toast {
+  position: fixed;
+  left: 50%; bottom: calc(20px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  background: var(--fondo-3);
+  border: 1px solid var(--cian);
+  color: var(--texto);
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: .9rem;
+  box-shadow: var(--glow-cian);
+  z-index: 10000;
+  animation: aparecer .2s ease both;
+  max-width: 90%;
+  text-align: center;
+}

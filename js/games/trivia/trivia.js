@@ -1,0 +1,505 @@
+/* ============================================================================
+   INSERT COIN — trivia.js  (juego: Trivia de Cine, duelo a contrarreloj)
+   ----------------------------------------------------------------------------
+   Mecánica de cada ronda:
+     1) CATEGORÍA  → uno de los dos (se alterna) elige el tema.
+     2) APUESTA    → cada uno apuesta su confianza (Seguro / Confiado / All-in),
+                     conociendo solo la categoría (¡a ciegas de la pregunta!).
+     3) PREGUNTA   → aparece la pregunta con cronómetro de 20s. Comodines: 50/50,
+                     Pista y Saltar (1 uso de cada uno por partida).
+     4) REVELAR    → se muestra la correcta, cuántos puntos sumó cada uno y un
+                     dato curioso.
+   Gana quien junta más puntos en 10 preguntas. El ganador suma 1 al marcador.
+
+   Sincronización: TODO el estado vive en  rooms/<code>/game . El "anfitrión"
+   (p1, quien creó la sala) es el árbitro: avanza las fases y calcula los puntos.
+   Los dos clientes dibujan la misma pantalla a partir de ese estado compartido.
+   ============================================================================ */
+
+(function () {
+
+  /* --- Parámetros del juego (fáciles de ajustar) -------------------------- */
+  const TOTAL = 10;            // preguntas por partida
+  const SEG = 20;              // segundos por pregunta
+  const BASE = 100;            // puntos base por acierto
+  const BONUS_RAPIDEZ = 50;    // bonus máximo por responder rápido
+  const MULT = { seguro: 1, confiado: 1.5, allin: 2 };      // multiplicador si acierta
+  const PENAL = { seguro: 0, confiado: 40, allin: 100 };    // pérdida si erra
+
+  const CATEGORIAS = [
+    { id: "terror",    nombre: "Terror y Slasher", emoji: "🔪" },
+    { id: "hollywood", nombre: "Hollywood y Sagas", emoji: "🎬" },
+    { id: "argentino", nombre: "Cine Argentino",    emoji: "🧉" },
+    { id: "animacion", nombre: "Animación",         emoji: "🎨" },
+    { id: "mixto",     nombre: "Mix de Cine",       emoji: "🎞️" },
+    { id: "sorpresa",  nombre: "¡Sorpresa!",        emoji: "🎲" }
+  ];
+
+  /* --- Variables locales (de ESTE teléfono, no se comparten) --------------- */
+  let cont, gameRef, listener;
+  let G = {};                  // último estado del juego (espejo de Firebase)
+  let mySlot, soyHost;
+  let timerInt = null, finRonda = 0, rondaConTimer = -1;
+  let local50 = {};            // opciones escondidas por el comodín 50/50 (por ronda)
+  let localPista = {};         // si revelé la pista (por ronda)
+  let hostTimeoutRonda = -1;   // control del "timeout de seguridad" del anfitrión
+
+  /* --- Utilidades ---------------------------------------------------------- */
+  const preguntas = () => window.TRIVIA_PREGUNTAS;
+  const esc = (s) => String(s).replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+  function shuffle(a) {
+    a = a.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  function catInfo(id) { return CATEGORIAS.find(c => c.id === id) || { nombre: id, emoji: "🎬" }; }
+  const otro = (slot) => (slot === "p1" ? "p2" : "p1");
+  function nick(slot) { const p = IC.room.players[slot]; return p ? p.nick : (slot === "p1" ? "Jugador 1" : "Jugador 2"); }
+  function avatar(slot) { const p = IC.room.players[slot]; return p ? p.avatar : "🎮"; }
+
+  /* =========================================================================
+     ARRANQUE DEL JUEGO  (lo llama el hub al entrar a la trivia)
+     ========================================================================= */
+  function crear(container) {
+    cont = container;
+    mySlot = IC.room.mySlot;
+    soyHost = IC.room.isHost();
+    gameRef = IC.room.gameRef();
+
+    // Escucho TODO el estado del juego y redibujo en cada cambio.
+    listener = gameRef.on("value", (snap) => {
+      G = snap.val() || {};
+      if (soyHost) hostTick();   // el árbitro mueve las fases
+      render();
+    });
+
+    cont.innerHTML = `<p class="muted center" style="margin:auto">Cargando…</p>`;
+  }
+
+  /* =========================================================================
+     LÓGICA DEL ANFITRIÓN (p1): hace avanzar la partida
+     ========================================================================= */
+  function hostTick() {
+    // Si el estado está vacío (primer arranque o revancha), lo inicializo.
+    if (!G.phase) {
+      gameRef.set({
+        phase: "categoria", ronda: 0, total: TOTAL,
+        puntos: { p1: 0, p2: 0 }, racha: { p1: 0, p2: 0 }
+      });
+      return;
+    }
+    const r = G.ronda || 0;
+
+    if (G.phase === "categoria") {
+      const elegida = G.eleccion && G.eleccion[r];
+      const yaHayPregunta = G.rondas && G.rondas[r];
+      if (elegida && !yaHayPregunta) {
+        const usadas = G.usadas || {};
+        const elegida2 = elegida === "sorpresa" ? "sorpresa" : elegida;
+        const pick = elegirPregunta(elegida2, usadas);
+        const up = {};
+        up[`rondas/${r}`] = { qIndex: pick.qIndex, orden: pick.orden, cat: pick.cat };
+        up[`usadas/${pick.qIndex}`] = true;
+        up["phase"] = "apuesta";
+        gameRef.update(up);
+      }
+    }
+
+    else if (G.phase === "apuesta") {
+      const ap = (G.apuestas && G.apuestas[r]) || {};
+      if (ap.p1 && ap.p2) {
+        gameRef.update({ phase: "pregunta" });
+        programarTimeoutSeguridad(r);
+      }
+    }
+
+    else if (G.phase === "pregunta") {
+      const resp = (G.respuestas && G.respuestas[r]) || {};
+      if (resp.p1 && resp.p2 && !(G.resultados && G.resultados[r])) {
+        calcularResultados(r);
+      }
+    }
+
+    else if (G.phase === "revelar") {
+      if (G.avanzarA === r + 1) {
+        if (r + 1 >= (G.total || TOTAL)) {
+          finalizar();
+        } else {
+          gameRef.update({ ronda: r + 1, phase: "categoria" });
+        }
+      }
+    }
+  }
+
+  /** El anfitrión elige una pregunta de la categoría pedida, sin repetir. */
+  function elegirPregunta(catId, usadas) {
+    let pool = preguntas().map((p, i) => ({ p, i })).filter(x => !usadas[x.i]);
+    if (catId !== "sorpresa") {
+      const f = pool.filter(x => x.p.cat === catId);
+      if (f.length) pool = f;             // si la categoría se agotó, uso cualquiera
+    }
+    if (!pool.length) pool = preguntas().map((p, i) => ({ p, i })); // todas usadas: reciclo
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    return { qIndex: pick.i, orden: shuffle([0, 1, 2, 3]) };
+  }
+
+  /** Si alguien se desconecta y no responde, el anfitrión cierra la ronda. */
+  function programarTimeoutSeguridad(r) {
+    if (hostTimeoutRonda === r) return;
+    hostTimeoutRonda = r;
+    setTimeout(() => {
+      if (G.phase !== "pregunta" || G.ronda !== r) return;
+      const resp = (G.respuestas && G.respuestas[r]) || {};
+      const up = {};
+      if (!resp.p1) up[`respuestas/${r}/p1`] = { op: -1, ms: SEG * 1000 };
+      if (!resp.p2) up[`respuestas/${r}/p2`] = { op: -1, ms: SEG * 1000 };
+      if (Object.keys(up).length) gameRef.update(up);
+    }, (SEG + 6) * 1000);
+  }
+
+  /** Calcula puntos de la ronda para los dos y pasa a "revelar". */
+  function calcularResultados(r) {
+    const ronda = G.rondas[r];
+    const preg = preguntas()[ronda.qIndex];
+    const correcta = ronda.orden.indexOf(preg.ok);   // índice correcto YA mezclado
+    const resp = G.respuestas[r];
+    const ap = (G.apuestas && G.apuestas[r]) || {};
+    const puntos = Object.assign({ p1: 0, p2: 0 }, G.puntos);
+    const racha = Object.assign({ p1: 0, p2: 0 }, G.racha);
+
+    const res = { correcta };
+    ["p1", "p2"].forEach(slot => {
+      const { op, ms } = resp[slot];
+      const apuesta = ap[slot] || "seguro";
+      let pts = 0, acierto = false;
+
+      if (op === correcta) {                 // ACIERTA
+        acierto = true;
+        const restante = Math.max(0, SEG * 1000 - (ms || 0));
+        const bonus = Math.round(BONUS_RAPIDEZ * (restante / (SEG * 1000)));
+        racha[slot] = (racha[slot] || 0) + 1;
+        const factorRacha = 1 + 0.2 * Math.min(racha[slot] - 1, 3);   // x1 → x1.6
+        pts = Math.round((BASE + bonus) * MULT[apuesta] * factorRacha);
+      } else if (op >= 0) {                   // RESPONDIÓ MAL
+        pts = -PENAL[apuesta];
+        racha[slot] = 0;
+      } else {                                // NO RESPONDIÓ / SALTÓ
+        pts = 0;
+        racha[slot] = 0;
+      }
+      puntos[slot] += pts;
+      res[slot] = { acierto, pts, op, apuesta };
+    });
+
+    gameRef.update({
+      [`resultados/${r}`]: res,
+      puntos, racha, phase: "revelar"
+    });
+  }
+
+  function finalizar() {
+    const p1 = G.puntos.p1, p2 = G.puntos.p2;
+    const ganador = p1 === p2 ? "empate" : (p1 > p2 ? "p1" : "p2");
+    gameRef.update({ phase: "fin", ganador });
+    if (ganador !== "empate") IC.scoreboard.registrarVictoria(ganador);
+  }
+
+  /* =========================================================================
+     ACCIONES DEL JUGADOR (escriben en el estado compartido)
+     ========================================================================= */
+  function elegirCategoria(catId) {
+    gameRef.child(`eleccion/${G.ronda}`).set(catId);
+  }
+  function apostar(tipo) {
+    gameRef.child(`apuestas/${G.ronda}/${mySlot}`).set(tipo);
+  }
+  function responder(opDisplay) {
+    const r = G.ronda;
+    if (G.respuestas && G.respuestas[r] && G.respuestas[r][mySlot]) return; // ya respondí
+    const ms = SEG * 1000 - Math.max(0, finRonda - Date.now());
+    gameRef.child(`respuestas/${r}/${mySlot}`).set({ op: opDisplay, ms });
+    pararTimer();
+  }
+  function usarComodin(tipo) {
+    const r = G.ronda;
+    const usados = (G.comodines && G.comodines[mySlot]) || {};
+    if (usados[tipo]) return;
+    gameRef.child(`comodines/${mySlot}/${tipo}`).set(true);
+
+    if (tipo === "ff") {
+      // Escondo 2 opciones incorrectas (efecto local, solo para mí).
+      const ronda = G.rondas[r];
+      const preg = preguntas()[ronda.qIndex];
+      const correcta = ronda.orden.indexOf(preg.ok);
+      const malas = [0, 1, 2, 3].filter(i => i !== correcta);
+      local50[r] = shuffle(malas).slice(0, 2);
+    } else if (tipo === "pista") {
+      localPista[r] = true;
+    } else if (tipo === "saltar") {
+      responder(-2);     // saltar = no responder, sin penalización
+    }
+    render();
+  }
+  function siguiente() {
+    gameRef.child("avanzarA").set((G.ronda || 0) + 1);
+  }
+  function revancha() {
+    // Vacío el estado del juego: el anfitrión lo reinicia solo (hostTick) y
+    // los dos clientes redibujan una partida nueva, sin salir de la trivia.
+    rondaConTimer = -1; local50 = {}; localPista = {}; hostTimeoutRonda = -1;
+    gameRef.remove();
+  }
+
+  /* =========================================================================
+     DIBUJO DE LA PANTALLA  (todo se deriva del estado G)
+     ========================================================================= */
+  function render() {
+    if (!G.phase) { cont.innerHTML = `<p class="muted center" style="margin:auto">Preparando duelo…</p>`; return; }
+    const r = G.ronda || 0;
+
+    if (G.phase === "categoria") vistaCategoria(r);
+    else if (G.phase === "apuesta") vistaApuesta(r);
+    else if (G.phase === "pregunta") vistaPregunta(r);
+    else if (G.phase === "revelar") vistaRevelar(r);
+    else if (G.phase === "fin") vistaFin();
+  }
+
+  /** Barra superior con el tanteador del duelo y el número de ronda. */
+  function hud() {
+    const p = G.puntos || { p1: 0, p2: 0 };
+    const rc = G.racha || { p1: 0, p2: 0 };
+    const fuego = (n) => n >= 2 ? ` <span class="racha">🔥${n}</span>` : "";
+    return `
+      <div class="tr-hud">
+        <div class="tr-hud-lado p1">
+          <span class="tr-av">${avatar("p1")}</span>
+          <span class="tr-nom">${esc(nick("p1"))}</span>
+          <span class="tr-pts">${p.p1}${fuego(rc.p1)}</span>
+        </div>
+        <div class="tr-ronda">Ronda<br><b>${(G.ronda || 0) + 1}/${G.total || TOTAL}</b></div>
+        <div class="tr-hud-lado p2">
+          <span class="tr-av">${avatar("p2")}</span>
+          <span class="tr-nom">${esc(nick("p2"))}</span>
+          <span class="tr-pts">${p.p2}${fuego(rc.p2)}</span>
+        </div>
+      </div>`;
+  }
+
+  function espera(slot, texto) {
+    return `<div class="tr-espera"><span class="tr-av big">${avatar(slot)}</span>
+      <p class="muted">${texto}</p>
+      <div class="dots"><span></span><span></span><span></span></div></div>`;
+  }
+
+  /* --- 1) CATEGORÍA -------------------------------------------------------- */
+  function vistaCategoria(r) {
+    const elige = (r % 2 === 0) ? "p1" : "p2";
+    if (elige === mySlot) {
+      const ya = G.eleccion && G.eleccion[r];
+      if (ya) { cont.innerHTML = hud() + espera(mySlot, "Preparando la pregunta…"); return; }
+      cont.innerHTML = hud() + `
+        <div class="tr-bloque">
+          <h3 class="tr-titulo">Elegí la categoría</h3>
+          <p class="muted small">Te toca a vos elegir el tema de esta ronda.</p>
+          <div class="tr-cats">
+            ${CATEGORIAS.map(c => `
+              <button class="tr-cat" data-cat="${c.id}">
+                <span class="e">${c.emoji}</span><span>${c.nombre}</span>
+              </button>`).join("")}
+          </div>
+        </div>`;
+      cont.querySelectorAll(".tr-cat").forEach(b =>
+        b.onclick = () => elegirCategoria(b.dataset.cat));
+    } else {
+      cont.innerHTML = hud() + espera(elige, `${esc(nick(elige))} está eligiendo la categoría…`);
+    }
+  }
+
+  /* --- 2) APUESTA ---------------------------------------------------------- */
+  function vistaApuesta(r) {
+    const ronda = G.rondas && G.rondas[r];
+    const cat = ronda ? catInfo(ronda.cat) : { nombre: "…", emoji: "🎬" };
+    const miApuesta = G.apuestas && G.apuestas[r] && G.apuestas[r][mySlot];
+
+    if (miApuesta) {
+      cont.innerHTML = hud() + espera(otro(mySlot),
+        `Apostaste <b>${miApuesta}</b>. Esperando a ${esc(nick(otro(mySlot)))}…`);
+      return;
+    }
+    cont.innerHTML = hud() + `
+      <div class="tr-bloque">
+        <div class="tr-cat-tag">${cat.emoji} ${cat.nombre}</div>
+        <h3 class="tr-titulo">¿Cuánto te la jugás?</h3>
+        <p class="muted small">Apostás <b>antes</b> de ver la pregunta. Más riesgo, más puntos.</p>
+        <div class="tr-apuestas">
+          <button class="tr-apuesta seguro" data-ap="seguro">
+            <b>🟢 Seguro</b><span>×1 · sin riesgo</span></button>
+          <button class="tr-apuesta confiado" data-ap="confiado">
+            <b>🟡 Confiado</b><span>×1.5 si acertás · −40 si errás</span></button>
+          <button class="tr-apuesta allin" data-ap="allin">
+            <b>🔴 All-in</b><span>×2 si acertás · −100 si errás</span></button>
+        </div>
+      </div>`;
+    cont.querySelectorAll(".tr-apuesta").forEach(b =>
+      b.onclick = () => apostar(b.dataset.ap));
+  }
+
+  /* --- 3) PREGUNTA --------------------------------------------------------- */
+  function vistaPregunta(r) {
+    const ronda = G.rondas[r];
+    const preg = preguntas()[ronda.qIndex];
+    const opciones = ronda.orden.map(i => preg.ops[i]);
+    const cat = catInfo(ronda.cat);
+
+    const yaRespondi = G.respuestas && G.respuestas[r] && G.respuestas[r][mySlot];
+    const miOp = yaRespondi ? G.respuestas[r][mySlot].op : null;
+    const escondidas = local50[r] || [];
+    const usados = (G.comodines && G.comodines[mySlot]) || {};
+    const oppResp = G.respuestas && G.respuestas[r] && G.respuestas[r][otro(mySlot)];
+
+    cont.innerHTML = hud() + `
+      <div class="tr-bloque">
+        <div class="tr-cat-tag">${cat.emoji} ${cat.nombre}</div>
+        <div class="tr-timer"><div class="tr-timer-bar" id="trivia-timer-bar"></div></div>
+        <h3 class="tr-pregunta">${esc(preg.q)}</h3>
+        ${localPista[r] ? `<p class="tr-pista">💡 ${esc(preg.pista || "Sin pista para esta.")}</p>` : ""}
+        <div class="tr-opciones">
+          ${opciones.map((op, i) => {
+            const oculta = escondidas.includes(i) ? "oculta" : "";
+            const elegida = (miOp === i) ? "elegida" : "";
+            const dis = yaRespondi ? "disabled" : "";
+            return `<button class="tr-op ${oculta} ${elegida}" data-op="${i}" ${dis}>${esc(op)}</button>`;
+          }).join("")}
+        </div>
+        ${yaRespondi
+          ? `<p class="tr-estado">${miOp === -2 ? "Saltaste la pregunta." : "Respuesta enviada."} ${oppResp ? "El otro ya respondió ✓" : "Esperando al otro…"}</p>`
+          : `<div class="tr-comodines">
+               <button class="tr-com" data-com="ff" ${usados.ff ? "disabled" : ""}>✂️ 50/50</button>
+               <button class="tr-com" data-com="pista" ${usados.pista ? "disabled" : ""}>💡 Pista</button>
+               <button class="tr-com" data-com="saltar" ${usados.saltar ? "disabled" : ""}>⏭️ Saltar</button>
+             </div>
+             <p class="tr-estado small">${oppResp ? `${esc(nick(otro(mySlot)))} ya respondió ✓` : ""}</p>`}
+      </div>`;
+
+    if (!yaRespondi) {
+      cont.querySelectorAll(".tr-op:not(.oculta)").forEach(b =>
+        b.onclick = () => responder(parseInt(b.dataset.op, 10)));
+      cont.querySelectorAll(".tr-com").forEach(b =>
+        b.onclick = () => usarComodin(b.dataset.com));
+    }
+
+    arrancarTimer(r);
+  }
+
+  /* --- 4) REVELAR ---------------------------------------------------------- */
+  function vistaRevelar(r) {
+    const ronda = G.rondas[r];
+    const preg = preguntas()[ronda.qIndex];
+    const opciones = ronda.orden.map(i => preg.ops[i]);
+    const res = G.resultados[r];
+    const miRes = res[mySlot], opRes = res[otro(mySlot)];
+    const ultima = (r + 1) >= (G.total || TOTAL);
+
+    const linea = (slot) => {
+      const rr = res[slot];
+      const signo = rr.pts > 0 ? "+" : "";
+      const clase = rr.acierto ? "ok" : (rr.op >= 0 ? "mal" : "nada");
+      return `<div class="tr-res-linea ${clase}">
+        <span>${avatar(slot)} ${esc(nick(slot))}</span>
+        <b>${signo}${rr.pts}</b></div>`;
+    };
+
+    cont.innerHTML = hud() + `
+      <div class="tr-bloque">
+        <div class="tr-veredicto ${miRes.acierto ? "ok" : "mal"}">
+          ${miRes.acierto ? "¡Correcto! 🎉" : (miRes.op === -2 ? "Saltaste ⏭️" : (miRes.op < 0 ? "Se acabó el tiempo ⏰" : "Incorrecto ✖"))}
+        </div>
+        <div class="tr-opciones revelado">
+          ${opciones.map((op, i) => {
+            let c = "";
+            if (i === res.correcta) c = "correcta";
+            else if (i === miRes.op) c = "mimala";
+            return `<div class="tr-op ${c}">${esc(op)}</div>`;
+          }).join("")}
+        </div>
+        <p class="tr-dato">🎬 ${esc(preg.dato || "")}</p>
+        <div class="tr-resultados">${linea("p1")}${linea("p2")}</div>
+        <button class="btn ${ultima ? "btn--amarillo" : ""}" id="tr-sig">${ultima ? "Ver resultado final 🏁" : "Siguiente ▶"}</button>
+      </div>`;
+    cont.querySelector("#tr-sig").onclick = () => { cont.querySelector("#tr-sig").disabled = true; siguiente(); };
+  }
+
+  /* --- 5) FIN -------------------------------------------------------------- */
+  function vistaFin() {
+    const p = G.puntos, gan = G.ganador;
+    const gano = gan === mySlot;
+    const titulo = gan === "empate" ? "¡Empate! 🤝" : (gano ? "¡Ganaste! 🏆" : "Perdiste 😅");
+
+    cont.innerHTML = `
+      <div class="tr-bloque tr-fin">
+        <h2 class="tr-fin-titulo ${gan === "empate" ? "" : (gano ? "gano" : "perdio")}">${titulo}</h2>
+        <div class="tr-fin-marcador">
+          <div class="lado p1"><span>${avatar("p1")} ${esc(nick("p1"))}</span><b>${p.p1}</b></div>
+          <div class="vs">VS</div>
+          <div class="lado p2"><span>${avatar("p2")} ${esc(nick("p2"))}</span><b>${p.p2}</b></div>
+        </div>
+        <p class="muted small center">El ganador ya sumó 1 al marcador de la sala.</p>
+        <button class="btn" id="tr-revancha">🔁 Revancha</button>
+        <button class="btn btn--ghost" id="tr-menu">Volver al menú</button>
+      </div>`;
+    cont.querySelector("#tr-revancha").onclick = () => revancha();
+    cont.querySelector("#tr-menu").onclick = () => IC.room.backToMenu();
+  }
+
+  /* --- Cronómetro ---------------------------------------------------------- */
+  function arrancarTimer(r) {
+    const yaRespondi = G.respuestas && G.respuestas[r] && G.respuestas[r][mySlot];
+    if (rondaConTimer !== r) {           // primera vez que veo esta pregunta
+      rondaConTimer = r;
+      finRonda = Date.now() + SEG * 1000;
+    }
+    pararTimer();
+    if (yaRespondi) { pintarBarra(); return; }
+    timerInt = setInterval(() => {
+      pintarBarra();
+      if (Date.now() >= finRonda) {
+        pararTimer();
+        // Se acabó el tiempo y no respondí: envío "sin respuesta".
+        if (!(G.respuestas && G.respuestas[r] && G.respuestas[r][mySlot])) responder(-1);
+      }
+    }, 100);
+    pintarBarra();
+  }
+  function pintarBarra() {
+    const bar = document.getElementById("trivia-timer-bar");
+    if (!bar) return;
+    const restante = Math.max(0, finRonda - Date.now());
+    const pct = (restante / (SEG * 1000)) * 100;
+    bar.style.width = pct + "%";
+    bar.classList.toggle("urgente", restante < 6000);
+  }
+  function pararTimer() { if (timerInt) { clearInterval(timerInt); timerInt = null; } }
+
+  /* --- Limpieza al volver al menú ----------------------------------------- */
+  function destroy() {
+    pararTimer();
+    if (gameRef && listener) gameRef.off("value", listener);
+    G = {}; rondaConTimer = -1; local50 = {}; localPista = {}; hostTimeoutRonda = -1;
+  }
+
+  /* --- Registro en el hub -------------------------------------------------- */
+  IC.games.register({
+    id: "trivia",
+    nombre: "Trivia de Cine",
+    emoji: "🎬",
+    desc: "Duelo a contrarreloj · terror, sagas, animación y más",
+    disponible: true,
+    crear, destroy
+  });
+
+})();
