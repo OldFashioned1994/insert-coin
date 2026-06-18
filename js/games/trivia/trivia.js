@@ -71,14 +71,53 @@
     soyHost = IC.room.isHost();
     gameRef = IC.room.gameRef();
 
-    // Escucho TODO el estado del juego y redibujo en cada cambio.
-    listener = gameRef.on("value", (snap) => {
-      G = snap.val() || {};
-      if (soyHost) hostTick();   // el árbitro mueve las fases
-      render();
-    });
-
+    // Muestro "Cargando…" ANTES de escuchar (si el evento llega sincrónico,
+    // no quiero pisar lo que dibuje el render).
     cont.innerHTML = `<p class="muted center" style="margin:auto">Cargando…</p>`;
+
+    // Escucho TODO el estado del juego y redibujo en cada cambio.
+    // El try/catch evita que un error deje la pantalla colgada en silencio.
+    listener = gameRef.on("value",
+      (snap) => {
+        try {
+          G = snap.val() || {};
+          if (soyHost) hostTick();   // el árbitro mueve las fases
+          render();
+        } catch (e) {
+          mostrarError("Error al dibujar la trivia", e);
+        }
+      },
+      (err) => mostrarError("Sin permiso para leer el juego", err)
+    );
+
+    // Plan B del anfitrión: arranca el estado sin esperar al primer evento
+    // (por si el evento sincrónico se pisó o tardó).
+    if (soyHost) {
+      gameRef.child("phase").get()
+        .then((s) => {
+          if (!s.exists()) {
+            gameRef.set({
+              phase: "categoria", ronda: 0, total: TOTAL,
+              puntos: { p1: 0, p2: 0 }, racha: { p1: 0, p2: 0 }
+            });
+          }
+        })
+        .catch((e) => mostrarError("No pude iniciar la partida", e));
+    }
+
+    return { destroy };   // el hub usa esto para limpiar al volver al menú
+  }
+
+  /** Muestra un error en pantalla en vez de quedar colgado. */
+  function mostrarError(titulo, e) {
+    console.error("[trivia]", titulo, e);
+    const msg = (e && e.message) ? e.message : String(e);
+    if (cont) cont.innerHTML = `
+      <div class="tr-bloque" style="margin:auto;text-align:center">
+        <p style="color:var(--rojo);font-weight:700">${titulo}</p>
+        <p class="muted small">${msg}</p>
+        <button class="btn btn--ghost" onclick="IC.room.backToMenu()">Volver al menú</button>
+      </div>`;
   }
 
   /* =========================================================================

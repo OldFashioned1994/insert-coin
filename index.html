@@ -7,6 +7,29 @@
   <meta name="theme-color" content="#0D0221" />
   <title>INSERT COIN</title>
 
+  <!-- Cazador de errores: muestra en pantalla cualquier falla, en vez de
+       quedar colgado en silencio. Útil para diagnosticar. -->
+  <script>
+    (function () {
+      function mostrar(msg) {
+        var d = document.getElementById("ic-error") || document.createElement("div");
+        d.id = "ic-error";
+        d.style.cssText = "position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;" +
+          "background:#3a0010;color:#ff8aa0;border:1px solid #ff3b5c;border-radius:10px;" +
+          "padding:10px 12px;font:12px/1.4 monospace;white-space:pre-wrap;max-height:40vh;overflow:auto";
+        d.textContent = "⚠️ " + msg + "\n(tocá para ocultar)";
+        d.onclick = function () { d.remove(); };
+        if (!d.parentNode) document.body.appendChild(d);
+      }
+      window.addEventListener("error", function (e) {
+        mostrar((e.message || "Error") + (e.filename ? "\n" + e.filename.split("/").pop() + ":" + e.lineno : ""));
+      });
+      window.addEventListener("unhandledrejection", function (e) {
+        var r = e.reason; mostrar("Promesa rechazada: " + ((r && r.message) ? r.message : r));
+      });
+    })();
+  </script>
+
   <!-- PWA: permite "agregar a la pantalla de inicio" -->
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
