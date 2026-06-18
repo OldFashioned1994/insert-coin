@@ -175,17 +175,22 @@
     }
   }
 
-  /** El anfitrión elige una pregunta de la categoría pedida, sin repetir. */
+  /** El anfitrión elige una pregunta sin repetir. `usadas` se conserva entre
+      revanchas (ver revancha()), así no salen las mismas preguntas de nuevo. */
   function elegirPregunta(catId, usadas) {
-    let pool = preguntas().map((p, i) => ({ p, i })).filter(x => !usadas[x.i]);
-    if (catId !== "sorpresa") {
-      const f = pool.filter(x => x.p.cat === catId);
-      if (f.length) pool = f;             // si la categoría se agotó, uso cualquiera
+    const todas = preguntas().map((p, i) => ({ p, i }));
+    let pool;
+
+    if (catId === "sorpresa") {
+      pool = todas.filter(x => !usadas[x.i]);              // cualquiera sin usar
+      if (!pool.length) pool = todas;                      // ya salieron todas: reciclo
+    } else {
+      pool = todas.filter(x => x.p.cat === catId && !usadas[x.i]);   // esa categoría, sin usar
+      if (!pool.length) pool = todas.filter(x => x.p.cat === catId); // categoría agotada: reciclo SOLO esa categoría
     }
-    if (!pool.length) pool = preguntas().map((p, i) => ({ p, i })); // todas usadas: reciclo
+
     const pick = pool[Math.floor(Math.random() * pool.length)];
-    // Devuelvo también la categoría real de la pregunta (Firebase rechaza
-    // valores undefined, así que esto NO puede faltar).
+    // Devuelvo también la categoría real (Firebase rechaza valores undefined).
     return { qIndex: pick.i, orden: shuffle([0, 1, 2, 3]), cat: pick.p.cat };
   }
 
@@ -244,10 +249,19 @@
   }
 
   function finalizar() {
-    const p1 = G.puntos.p1, p2 = G.puntos.p2;
-    const ganador = p1 === p2 ? "empate" : (p1 > p2 ? "p1" : "p2");
-    gameRef.update({ phase: "fin", ganador });
-    if (ganador !== "empate") IC.scoreboard.registrarVictoria(ganador);
+    // Transición ATÓMICA a "fin": aunque el anfitrión procese varios eventos
+    // seguidos, solo UNA ejecución gana la transacción y registra la victoria.
+    // Así el marcador nunca suma de más ni de menos.
+    gameRef.child("phase").transaction(
+      (cur) => (cur === "fin" ? undefined : "fin"),   // si ya finalizó, aborta
+      (err, committed) => {
+        if (err || !committed) return;                // otro evento ya cerró: no duplico
+        const p1 = G.puntos.p1, p2 = G.puntos.p2;
+        const ganador = p1 === p2 ? "empate" : (p1 > p2 ? "p1" : "p2");
+        gameRef.child("ganador").set(ganador);
+        if (ganador !== "empate") IC.scoreboard.registrarVictoria(ganador);
+      }
+    );
   }
 
   /* =========================================================================
@@ -290,10 +304,15 @@
     gameRef.child("avanzarA").set((G.ronda || 0) + 1);
   }
   function revancha() {
-    // Vacío el estado del juego: el anfitrión lo reinicia solo (hostTick) y
-    // los dos clientes redibujan una partida nueva, sin salir de la trivia.
+    // Reinicio la partida PERO conservo "usadas" (las preguntas ya jugadas),
+    // así la revancha no repite las preguntas anteriores.
     rondaConTimer = -1; local50 = {}; localPista = {}; hostTimeoutRonda = -1;
-    gameRef.remove();
+    const usadas = (G && G.usadas) ? G.usadas : {};
+    gameRef.set({
+      phase: "categoria", ronda: 0, total: TOTAL,
+      puntos: { p1: 0, p2: 0 }, racha: { p1: 0, p2: 0 },
+      usadas: usadas
+    });
   }
 
   /* =========================================================================
@@ -477,7 +496,10 @@
 
   /* --- 5) FIN -------------------------------------------------------------- */
   function vistaFin() {
-    const p = G.puntos, gan = G.ganador;
+    const p = G.puntos;
+    // Si el ganador todavía no se sincronizó, lo calculo localmente (evita parpadeo).
+    let gan = G.ganador;
+    if (!gan) gan = p.p1 === p.p2 ? "empate" : (p.p1 > p.p2 ? "p1" : "p2");
     const gano = gan === mySlot;
     const titulo = gan === "empate" ? "¡Empate! 🤝" : (gano ? "¡Ganaste! 🏆" : "Perdiste 😅");
 
@@ -489,7 +511,7 @@
           <div class="vs">VS</div>
           <div class="lado p2"><span>${avatar("p2")} ${esc(nick("p2"))}</span><b>${p.p2}</b></div>
         </div>
-        <p class="muted small center">El ganador ya sumó 1 al marcador de la sala.</p>
+        <p class="muted small center">${gan === "empate" ? "Empate: no suma nadie al marcador." : "El ganador sumó 1 al marcador de la sala."}</p>
         <button class="btn" id="tr-revancha">🔁 Revancha</button>
         <button class="btn btn--ghost" id="tr-menu">Volver al menú</button>
       </div>`;
