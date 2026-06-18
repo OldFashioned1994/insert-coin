@@ -16,16 +16,20 @@ IC.audio = {
   /* --- Música: homenaje arcade al tema de "Halloween" (Carpenter) ---------
      Compás de 5/4 (10 corcheas por compás, 2 compases = 20 pasos), ostinato
      hipnótico en Fa# menor. Acento en el agrupamiento 3+2 (pasos 0 y 6). */
-  _BPM: 166,
-  _ACC: [0, 6, 10, 16],   // pasos acentuados (el pulso del 5/4)
-  // Alternancia de 4ª justa (Fa#5 / Do#5) en el 1er compás; sube a La5/Mi5 en el 2º.
-  _melody: [739.99, 554.37, 739.99, 554.37, 739.99,
-            554.37, 739.99, 554.37, 739.99, 554.37,
-            880.00, 659.25, 880.00, 659.25, 880.00,
-            659.25, 880.00, 659.25, 880.00, 659.25],
-  // Bajo grave marcando el pulso (Fa#2 en el 1er compás, Re2 en el 2º).
-  _bass:   [92.50, 0, 0, 92.50, 0, 0, 92.50, 0, 0, 0,
-            73.42, 0, 0, 73.42, 0, 0, 73.42, 0, 0, 0],
+  _BPM: 158,
+  // Pulso del 5/4 (agrupado 3+2): acentos en los pasos 0 y 6 de cada compás.
+  _ACC: [0, 6, 10, 16, 20, 26, 30, 36],
+  // 4 compases en Fa# menor: 1-2 ostinato hipnótico (Fa#5/Do#5), 3 sube la
+  // tensión (La5/Mi5), 4 desciende para resolver y volver al loop.
+  _melody: [739.99, 554.37, 739.99, 554.37, 739.99, 554.37, 739.99, 554.37, 739.99, 554.37,
+            739.99, 554.37, 739.99, 554.37, 739.99, 554.37, 739.99, 554.37, 739.99, 554.37,
+            880.00, 659.25, 880.00, 659.25, 880.00, 659.25, 880.00, 659.25, 880.00, 659.25,
+            587.33, 493.88, 587.33, 493.88, 587.33, 493.88, 554.37, 440.00, 554.37, 440.00],
+  // Bajo grave marcando el pulso de cada compás (raíz que va bajando al final).
+  _bass:   [92.50, 0, 0, 0, 0, 0, 92.50, 0, 0, 0,
+            92.50, 0, 0, 0, 0, 0, 92.50, 0, 0, 0,
+            110.00, 0, 0, 0, 0, 0, 110.00, 0, 0, 0,
+            73.42, 0, 0, 0, 0, 0, 82.41, 0, 0, 0],
 
   /** Se llama una vez al cargar: lee el mute guardado y engancha el botón
       y los clics. NO crea el audio todavía (eso necesita un gesto). */
@@ -104,7 +108,7 @@ IC.audio = {
     if (!this._musicOn) return;
     const stepDur = 60 / this._BPM / 2;   // corcheas
     while (this._next < this.ctx.currentTime + 0.13) {
-      const s = this._step % 20;
+      const s = this._step % 40;
       const lead = this._melody[s], bass = this._bass[s];
       const acc = this._ACC.indexOf(s) >= 0;        // paso acentuado
       if (lead) this._tone(lead, this._next, stepDur * 1.25, "triangle", acc ? 0.62 : 0.4, this.musicGain);
