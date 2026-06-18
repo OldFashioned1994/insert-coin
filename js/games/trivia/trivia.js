@@ -113,7 +113,7 @@
         .then((s) => {
           if (!s.exists()) {
             gameRef.set({
-              phase: "categoria", ronda: 0, total: TOTAL,
+              phase: "lobby", ronda: 0, total: TOTAL,   // arranca en el lobby (elegir modo)
               puntos: { p1: 0, p2: 0 }, racha: { p1: 0, p2: 0 }
             });
           }
