@@ -76,6 +76,12 @@ IC.room = {
     playersRef.on("value", onPlayers);
     this._watchers.push({ ref: playersRef, ev: "value", cb: onPlayers });
 
+    // Escucho el modo elegido en el menú (para que ambos lo conozcan).
+    const modeRef = IC.fb.ref(`rooms/${code}/currentMode`);
+    const onMode = (snap) => { this.gameMode = snap.val() || "cine"; };
+    modeRef.on("value", onMode);
+    this._watchers.push({ ref: modeRef, ev: "value", cb: onMode });
+
     // Guardo la sala para poder "volver" si se recarga la página.
     localStorage.setItem("ic_room", JSON.stringify({ code, slot }));
 
@@ -112,10 +118,15 @@ IC.room = {
     return IC.fb.ref(`rooms/${this.code}/game${sub ? "/" + sub : ""}`);
   },
 
+  gameMode: "cine",   // modo elegido en el menú (ej. la trivia: "cine" | "terror")
+
   /** Lanza un juego: limpia el estado anterior y lo marca como activo.
+      `modo` es opcional (lo usa la trivia para Cine vs Solo Terror).
       Cualquiera de los dos puede iniciarlo desde el menú. */
-  async launchGame(id) {
+  async launchGame(id, modo) {
+    this.gameMode = modo || "cine";
     await this.gameRef().remove();                  // borra estado viejo
+    await IC.fb.ref(`rooms/${this.code}/currentMode`).set(this.gameMode);
     await IC.fb.ref(`rooms/${this.code}/currentGame`).set(id);
   },
 

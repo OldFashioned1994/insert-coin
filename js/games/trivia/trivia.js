@@ -113,7 +113,8 @@
         .then((s) => {
           if (!s.exists()) {
             gameRef.set({
-              phase: "lobby", ronda: 0, total: TOTAL,   // arranca en el lobby (elegir modo)
+              phase: "categoria", modo: IC.room.gameMode || "cine",  // modo elegido en el menú
+              ronda: 0, total: TOTAL,
               puntos: { p1: 0, p2: 0 }, racha: { p1: 0, p2: 0 }
             });
           }
@@ -144,7 +145,8 @@
     // (donde el anfitrión elige el modo: Cine o Solo Terror).
     if (!G.phase) {
       gameRef.set({
-        phase: "lobby", ronda: 0, total: TOTAL,
+        phase: "categoria", modo: IC.room.gameMode || "cine",
+        ronda: 0, total: TOTAL,
         puntos: { p1: 0, p2: 0 }, racha: { p1: 0, p2: 0 }
       });
       return;
@@ -329,7 +331,8 @@
     sonRevelar = -1; finSonado = false; lastTick = 0;
     const usadas = (G && G.usadas) ? G.usadas : {};
     gameRef.set({
-      phase: "lobby", ronda: 0, total: TOTAL,
+      phase: "categoria", modo: (G && G.modo) || IC.room.gameMode || "cine",
+      ronda: 0, total: TOTAL,
       puntos: { p1: 0, p2: 0 }, racha: { p1: 0, p2: 0 },
       usadas: usadas
     });
@@ -597,7 +600,12 @@
     emoji: "🎬",
     desc: "Duelo a contrarreloj · terror, sagas, animación y más",
     disponible: true,
-    crear, destroy
+    crear, destroy,
+    // Dos entradas en el menú: el mismo juego en dos modos.
+    modos: [
+      { modo: "cine",   nombre: "Trivia de Cine",   emoji: "🎬", desc: "Duelo a contrarreloj · todas las categorías" },
+      { modo: "terror", nombre: "Trivia de Terror", emoji: "🔪", desc: "Solo terror · clásicos, slashers, sobrenatural y más" }
+    ]
   });
 
 })();

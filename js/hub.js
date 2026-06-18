@@ -76,14 +76,23 @@
   /* --- Menú de juegos (se arma desde el registro) -------------------------- */
   function construirMenuJuegos() {
     const grid = $("game-grid");
-    grid.innerHTML = IC.games.todos().map((g) => `
-      <button class="game-card ${g.disponible ? "" : "locked"}" data-game="${g.id}" ${g.disponible ? "" : "disabled"}>
-        <span class="emoji">${g.emoji}</span>
+    // Cada juego puede declarar "modos": se muestra una tarjeta por modo.
+    const cards = [];
+    IC.games.todos().forEach((g) => {
+      if (g.modos && g.modos.length) {
+        g.modos.forEach((m) => cards.push({ gameId: g.id, modo: m.modo, nombre: m.nombre, emoji: m.emoji, desc: m.desc, disponible: g.disponible }));
+      } else {
+        cards.push({ gameId: g.id, modo: "", nombre: g.nombre, emoji: g.emoji, desc: g.desc, disponible: g.disponible });
+      }
+    });
+    grid.innerHTML = cards.map((c) => `
+      <button class="game-card ${c.disponible ? "" : "locked"}" data-game="${c.gameId}" data-modo="${c.modo}" ${c.disponible ? "" : "disabled"}>
+        <span class="emoji">${c.emoji}</span>
         <span class="info">
-          <span class="nombre">${g.nombre}</span>
-          <span class="desc">${g.desc}</span>
+          <span class="nombre">${c.nombre}</span>
+          <span class="desc">${c.desc}</span>
         </span>
-        ${g.disponible ? "" : `<span class="badge">Pronto</span>`}
+        ${c.disponible ? "" : `<span class="badge">Pronto</span>`}
       </button>`).join("");
 
     grid.querySelectorAll(".game-card:not(.locked)").forEach((b) => {
@@ -92,7 +101,7 @@
           toast("Esperá a que entre la otra persona 👫");
           return;
         }
-        IC.room.launchGame(b.dataset.game);
+        IC.room.launchGame(b.dataset.game, b.dataset.modo || undefined);
       };
     });
   }
