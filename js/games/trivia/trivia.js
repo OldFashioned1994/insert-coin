@@ -184,7 +184,9 @@
     }
     if (!pool.length) pool = preguntas().map((p, i) => ({ p, i })); // todas usadas: reciclo
     const pick = pool[Math.floor(Math.random() * pool.length)];
-    return { qIndex: pick.i, orden: shuffle([0, 1, 2, 3]) };
+    // Devuelvo también la categoría real de la pregunta (Firebase rechaza
+    // valores undefined, así que esto NO puede faltar).
+    return { qIndex: pick.i, orden: shuffle([0, 1, 2, 3]), cat: pick.p.cat };
   }
 
   /** Si alguien se desconecta y no responde, el anfitrión cierra la ronda. */
