@@ -99,17 +99,10 @@
 
   /* --- Pantalla de inicio -------------------------------------------------- */
   function wireInicio(ok) {
-    let armado = false;   // 1er toque: arranca la música y se queda en la portada; 2º: entra
     $("btn-start").onclick = () => {
-      if (!armado) {
-        armado = true;
-        IC.audio.unlock();        // desbloquea el audio con este primer toque
-        IC.audio.coin();          // "insert coin"
-        IC.audio.startMusic();    // arranca la música en la propia portada
-        const sub = document.querySelector("#screen-inicio .inicio-sub");
-        if (sub) sub.textContent = "♪ Tocá de nuevo para entrar";
-        return;                   // se queda en el inicio escuchando la música
-      }
+      IC.audio.unlock();        // desbloquea el audio con este toque
+      IC.audio.coin();          // "insert coin"
+      IC.audio.startMusic();    // arranca la música (sigue sonando en las pantallas siguientes)
       mostrar("screen-perfil");
       setTimeout(() => $("in-nick").focus(), 100);
     };
