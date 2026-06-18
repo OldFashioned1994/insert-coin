@@ -1,5 +1,4 @@
 {
-  "_comentario": "Reglas de seguridad de la Realtime Database para INSERT COIN. Pegá el contenido de este archivo en Firebase → Realtime Database → pestaña 'Reglas' → Publicar. Permiten leer/escribir SOLO dentro de salas (rooms) y bloquean todo lo demás. No hay login: la privacidad es que sin el código de 4 letras no se entra. Alcanza de sobra para un juego entre dos.",
   "rules": {
     ".read": false,
     ".write": false,

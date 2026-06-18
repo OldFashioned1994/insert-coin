@@ -18,11 +18,11 @@
    ============================================================================ */
 
 window.FIREBASE_CONFIG = {
-  apiKey: "PEGÁ_TU_API_KEY_ACÁ",
-  authDomain: "PEGÁ_TU_AUTH_DOMAIN_ACÁ",
-  databaseURL: "PEGÁ_TU_DATABASE_URL_ACÁ",   // ← imprescindible para el tiempo real
-  projectId: "PEGÁ_TU_PROJECT_ID_ACÁ",
-  storageBucket: "PEGÁ_TU_STORAGE_BUCKET_ACÁ",
-  messagingSenderId: "PEGÁ_TU_SENDER_ID_ACÁ",
-  appId: "PEGÁ_TU_APP_ID_ACÁ"
+  apiKey: "AIzaSyADDpPwUsf6tj1TduwNJs5Hl_80odWPXrc",
+  authDomain: "insert-coin-a9487.firebaseapp.com",
+  databaseURL: "https://insert-coin-a9487-default-rtdb.firebaseio.com",
+  projectId: "insert-coin-a9487",
+  storageBucket: "insert-coin-a9487.firebasestorage.app",
+  messagingSenderId: "1088460697045",
+  appId: "1:1088460697045:web:fa757719e52a0ebf8a215c"
 };
