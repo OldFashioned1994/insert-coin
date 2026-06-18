@@ -26,6 +26,7 @@
   const BASE = 100;            // puntos base por acierto
   const BONUS_RAPIDEZ = 50;    // bonus máximo por responder rápido
 
+  // Categorías del modo CINE (todas las categorías).
   const CATEGORIAS = [
     { id: "terror",    nombre: "Terror y Slasher", emoji: "🔪" },
     { id: "hollywood", nombre: "Hollywood y Sagas", emoji: "🎬" },
@@ -34,6 +35,19 @@
     { id: "mixto",     nombre: "Mix de Cine",       emoji: "🎞️" },
     { id: "sorpresa",  nombre: "¡Sorpresa!",        emoji: "🎲" }
   ];
+
+  // Sub-temas del modo SOLO TERROR (filtran por el campo "sub" de cada pregunta).
+  const CAT_TERROR = [
+    { id: "clasicos",      nombre: "Clásicos",        emoji: "🎞️" },
+    { id: "slasher",       nombre: "Slashers",        emoji: "🔪" },
+    { id: "sobrenatural",  nombre: "Sobrenatural",    emoji: "👻" },
+    { id: "moderno",       nombre: "Terror Moderno",  emoji: "🩸" },
+    { id: "internacional", nombre: "Internacional",   emoji: "🌍" },
+    { id: "frases",        nombre: "Frases de Terror", emoji: "💬" },
+    { id: "sorpresa",      nombre: "¡Sorpresa!",      emoji: "🎲" }
+  ];
+  // Lista de categorías según el modo de la partida ("terror" | "cine").
+  const catsActuales = (modo) => (modo === "terror" ? CAT_TERROR : CATEGORIAS);
 
   /* --- Variables locales (de ESTE teléfono, no se comparten) --------------- */
   let cont, gameRef, listener;
@@ -59,6 +73,7 @@
     return a;
   }
   function catInfo(id) { return CATEGORIAS.find(c => c.id === id) || { nombre: id, emoji: "🎬" }; }
+  function catInfoFor(id, modo) { return catsActuales(modo).find(c => c.id === id) || { nombre: id, emoji: "🎬" }; }
   const otro = (slot) => (slot === "p1" ? "p2" : "p1");
   function nick(slot) { const p = IC.room.players[slot]; return p ? p.nick : (slot === "p1" ? "Jugador 1" : "Jugador 2"); }
   function avatar(slot) { const p = IC.room.players[slot]; return p ? p.avatar : "🎮"; }
@@ -125,10 +140,11 @@
      LÓGICA DEL ANFITRIÓN (p1): hace avanzar la partida
      ========================================================================= */
   function hostTick() {
-    // Si el estado está vacío (primer arranque o revancha), lo inicializo.
+    // Si el estado está vacío (primer arranque o revancha), arranca en el lobby
+    // (donde el anfitrión elige el modo: Cine o Solo Terror).
     if (!G.phase) {
       gameRef.set({
-        phase: "categoria", ronda: 0, total: TOTAL,
+        phase: "lobby", ronda: 0, total: TOTAL,
         puntos: { p1: 0, p2: 0 }, racha: { p1: 0, p2: 0 }
       });
       return;
@@ -140,9 +156,10 @@
       const yaHayPregunta = G.rondas && G.rondas[r];
       if (elegida && !yaHayPregunta) {
         const usadas = G.usadas || {};
-        const pick = elegirPregunta(elegida, usadas);
+        const pick = elegirPregunta(elegida, usadas, G.modo);
+        const info = catInfoFor(elegida, G.modo);
         const up = {};
-        up[`rondas/${r}`] = { qIndex: pick.qIndex, orden: pick.orden, cat: pick.cat };
+        up[`rondas/${r}`] = { qIndex: pick.qIndex, orden: pick.orden, cat: pick.cat, tag: `${info.emoji} ${info.nombre}` };
         up[`usadas/${pick.qIndex}`] = true;
         up["phase"] = "pregunta";          // directo a la pregunta (sin apuesta)
         gameRef.update(up);
@@ -170,21 +187,33 @@
 
   /** El anfitrión elige una pregunta sin repetir. `usadas` se conserva entre
       revanchas (ver revancha()), así no salen las mismas preguntas de nuevo. */
-  function elegirPregunta(catId, usadas) {
+  function elegirPregunta(catId, usadas, modo) {
     const todas = preguntas().map((p, i) => ({ p, i }));
-    let pool;
 
-    if (catId === "sorpresa") {
-      pool = todas.filter(x => !usadas[x.i]);              // cualquiera sin usar
-      if (!pool.length) pool = todas;                      // ya salieron todas: reciclo
+    // Base según el modo: en "terror" solo preguntas de terror, filtradas por sub-tema.
+    let base;
+    if (modo === "terror") {
+      base = todas.filter(x => x.p.cat === "terror");
+      if (catId !== "sorpresa") base = base.filter(x => x.p.sub === catId);
     } else {
-      pool = todas.filter(x => x.p.cat === catId && !usadas[x.i]);   // esa categoría, sin usar
-      if (!pool.length) pool = todas.filter(x => x.p.cat === catId); // categoría agotada: reciclo SOLO esa categoría
+      base = (catId === "sorpresa") ? todas : todas.filter(x => x.p.cat === catId);
     }
 
-    const pick = pool[Math.floor(Math.random() * pool.length)];
-    // Devuelvo también la categoría real (Firebase rechaza valores undefined).
+    let pool = base.filter(x => !usadas[x.i]);   // sin usar
+    if (!pool.length) pool = base;               // agotado: reciclo dentro del mismo filtro
+
+    const pick = elegirPonderado(pool);          // favorece las difíciles
     return { qIndex: pick.i, orden: shuffle([0, 1, 2, 3]), cat: pick.p.cat };
+  }
+
+  /** Elige al azar PERO ponderando por dificultad: una dif 3 tiene el triple de
+      chances que una dif 1. Así el juego se inclina hacia lo difícil. */
+  function elegirPonderado(pool) {
+    let total = 0;
+    for (const x of pool) total += (x.p.dif || 2);
+    let r = Math.random() * total;
+    for (const x of pool) { r -= (x.p.dif || 2); if (r <= 0) return x; }
+    return pool[pool.length - 1];
   }
 
   /** Si alguien se desconecta y no responde, el anfitrión cierra la ronda. */
@@ -257,6 +286,9 @@
   /* =========================================================================
      ACCIONES DEL JUGADOR (escriben en el estado compartido)
      ========================================================================= */
+  function elegirModo(modo) {            // lo elige el anfitrión en el lobby
+    gameRef.update({ modo: modo, phase: "categoria" });
+  }
   function elegirCategoria(catId) {
     gameRef.child(`eleccion/${G.ronda}`).set(catId);
   }
@@ -297,7 +329,7 @@
     sonRevelar = -1; finSonado = false; lastTick = 0;
     const usadas = (G && G.usadas) ? G.usadas : {};
     gameRef.set({
-      phase: "categoria", ronda: 0, total: TOTAL,
+      phase: "lobby", ronda: 0, total: TOTAL,
       puntos: { p1: 0, p2: 0 }, racha: { p1: 0, p2: 0 },
       usadas: usadas
     });
@@ -310,10 +342,36 @@
     if (!G.phase) { cont.innerHTML = `<p class="muted center" style="margin:auto">Preparando duelo…</p>`; return; }
     const r = G.ronda || 0;
 
-    if (G.phase === "categoria") vistaCategoria(r);
+    if (G.phase === "lobby") vistaLobby();
+    else if (G.phase === "categoria") vistaCategoria(r);
     else if (G.phase === "pregunta") vistaPregunta(r);
     else if (G.phase === "revelar") vistaRevelar(r);
     else if (G.phase === "fin") vistaFin();
+  }
+
+  /* --- 0) LOBBY: el anfitrión elige el modo (Cine o Solo Terror) ----------- */
+  function vistaLobby() {
+    if (!IC.room.isHost()) {
+      cont.innerHTML = hud() + espera("p1", `${esc(nick("p1"))} está eligiendo el modo…`);
+      return;
+    }
+    cont.innerHTML = hud() + `
+      <div class="tr-bloque">
+        <h3 class="tr-titulo">Elegí el modo</h3>
+        <p class="muted small">El anfitrión elige cómo jugar esta partida.</p>
+        <div class="tr-modos">
+          <button class="tr-modo cine" data-modo="cine">
+            <span class="e">🎬</span><b>Cine (todo)</b>
+            <span>Terror, Hollywood, animación, cine argentino y más.</span>
+          </button>
+          <button class="tr-modo terror" data-modo="terror">
+            <span class="e">🔪</span><b>Solo Terror</b>
+            <span>Clásicos, slashers, sobrenatural, moderno, internacional y frases.</span>
+          </button>
+        </div>
+      </div>`;
+    cont.querySelectorAll(".tr-modo").forEach(b =>
+      b.onclick = () => elegirModo(b.dataset.modo));
   }
 
   /** Barra superior con el tanteador del duelo y el número de ronda. */
@@ -354,7 +412,7 @@
           <h3 class="tr-titulo">Elegí la categoría</h3>
           <p class="muted small">Te toca a vos elegir el tema de esta ronda.</p>
           <div class="tr-cats">
-            ${CATEGORIAS.map(c => `
+            ${catsActuales(G.modo).map(c => `
               <button class="tr-cat" data-cat="${c.id}">
                 <span class="e">${c.emoji}</span><span>${c.nombre}</span>
               </button>`).join("")}
@@ -372,7 +430,7 @@
     const ronda = G.rondas[r];
     const preg = preguntas()[ronda.qIndex];
     const opciones = ronda.orden.map(i => preg.ops[i]);
-    const cat = catInfo(ronda.cat);
+    const tag = ronda.tag || `${catInfo(ronda.cat).emoji} ${catInfo(ronda.cat).nombre}`;
 
     const yaRespondi = G.respuestas && G.respuestas[r] && G.respuestas[r][mySlot];
     const miOp = yaRespondi ? G.respuestas[r][mySlot].op : null;
@@ -382,7 +440,7 @@
 
     cont.innerHTML = hud() + `
       <div class="tr-bloque">
-        <div class="tr-cat-tag">${cat.emoji} ${cat.nombre}</div>
+        <div class="tr-cat-tag">${tag}</div>
         <div class="tr-timer"><div class="tr-timer-bar" id="trivia-timer-bar"></div></div>
         <h3 class="tr-pregunta">${esc(preg.q)}</h3>
         ${localPista[r] ? `<p class="tr-pista">💡 ${esc(preg.pista || "Sin pista para esta.")}</p>` : ""}

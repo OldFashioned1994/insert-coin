@@ -8,7 +8,7 @@
    (v1 → v2). Eso obliga al celu a renovar la copia guardada.
    ============================================================================ */
 
-const CACHE = "insert-coin-v13";
+const CACHE = "insert-coin-v14";
 
 // Archivos propios de la app (la "cáscara").
 const ASSETS = [

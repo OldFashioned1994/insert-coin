@@ -52,6 +52,21 @@
 .tr-cat[data-cat="terror"] { border-color: rgba(255,59,92,.5); }
 .tr-cat[data-cat="terror"]:hover { border-color: var(--rojo); box-shadow: 0 0 10px rgba(255,59,92,.6); }
 
+/* --- Selección de modo (lobby: Cine / Solo Terror) ------------------------ */
+.tr-modos { display: flex; flex-direction: column; gap: 12px; }
+.tr-modo {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  background: var(--fondo-2); border: 2px solid var(--borde); color: var(--texto);
+  border-radius: var(--radio); padding: 18px; cursor: pointer; font-family: inherit; text-align: left;
+  transition: transform .08s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.tr-modo .e { font-size: 1.9rem; }
+.tr-modo b { font-size: 1.1rem; }
+.tr-modo span:last-child { font-size: .85rem; color: var(--texto-tenue); }
+.tr-modo:active { transform: scale(.99); }
+.tr-modo.cine:hover { border-color: var(--cian); box-shadow: var(--glow-cian); }
+.tr-modo.terror:hover { border-color: var(--rojo); box-shadow: 0 0 10px rgba(255,59,92,.6); }
+
 /* --- Apuestas ------------------------------------------------------------- */
 .tr-apuestas { display: flex; flex-direction: column; gap: 10px; }
 .tr-apuesta {
