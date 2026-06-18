@@ -3,12 +3,12 @@
    ----------------------------------------------------------------------------
    Mecánica de cada ronda:
      1) CATEGORÍA  → uno de los dos (se alterna) elige el tema.
-     2) APUESTA    → cada uno apuesta su confianza (Seguro / Confiado / All-in),
-                     conociendo solo la categoría (¡a ciegas de la pregunta!).
-     3) PREGUNTA   → aparece la pregunta con cronómetro de 20s. Comodines: 50/50,
+     2) PREGUNTA   → aparece la pregunta con cronómetro de 20s. Comodines: 50/50,
                      Pista y Saltar (1 uso de cada uno por partida).
-     4) REVELAR    → se muestra la correcta, cuántos puntos sumó cada uno y un
+     3) REVELAR    → se muestra la correcta, cuántos puntos sumó cada uno y un
                      dato curioso.
+   Puntaje único: acertar = 100 + bonus por rapidez, multiplicado por el factor
+   de racha (respuestas seguidas). Errar o no responder = 0 y corta la racha.
    Gana quien junta más puntos en 10 preguntas. El ganador suma 1 al marcador.
 
    Sincronización: TODO el estado vive en  rooms/<code>/game . El "anfitrión"
@@ -19,12 +19,12 @@
 (function () {
 
   /* --- Parámetros del juego (fáciles de ajustar) -------------------------- */
+  // Sistema de puntos ÚNICO: acertar = BASE + bonus por rapidez, multiplicado
+  // por el factor de racha. Errar o no responder = 0 puntos y corta la racha.
   const TOTAL = 10;            // preguntas por partida
   const SEG = 20;              // segundos por pregunta
   const BASE = 100;            // puntos base por acierto
   const BONUS_RAPIDEZ = 50;    // bonus máximo por responder rápido
-  const MULT = { seguro: 1, confiado: 1.5, allin: 2 };      // multiplicador si acierta
-  const PENAL = { seguro: 0, confiado: 40, allin: 100 };    // pérdida si erra
 
   const CATEGORIAS = [
     { id: "terror",    nombre: "Terror y Slasher", emoji: "🔪" },
@@ -139,20 +139,12 @@
       const yaHayPregunta = G.rondas && G.rondas[r];
       if (elegida && !yaHayPregunta) {
         const usadas = G.usadas || {};
-        const elegida2 = elegida === "sorpresa" ? "sorpresa" : elegida;
-        const pick = elegirPregunta(elegida2, usadas);
+        const pick = elegirPregunta(elegida, usadas);
         const up = {};
         up[`rondas/${r}`] = { qIndex: pick.qIndex, orden: pick.orden, cat: pick.cat };
         up[`usadas/${pick.qIndex}`] = true;
-        up["phase"] = "apuesta";
+        up["phase"] = "pregunta";          // directo a la pregunta (sin apuesta)
         gameRef.update(up);
-      }
-    }
-
-    else if (G.phase === "apuesta") {
-      const ap = (G.apuestas && G.apuestas[r]) || {};
-      if (ap.p1 && ap.p2) {
-        gameRef.update({ phase: "pregunta" });
         programarTimeoutSeguridad(r);
       }
     }
@@ -208,20 +200,20 @@
     }, (SEG + 6) * 1000);
   }
 
-  /** Calcula puntos de la ronda para los dos y pasa a "revelar". */
+  /** Calcula puntos de la ronda para los dos y pasa a "revelar".
+      Sistema único: acertar = (BASE + bonus por rapidez) × factor de racha.
+      Errar o no responder = 0 puntos y corta la racha. */
   function calcularResultados(r) {
     const ronda = G.rondas[r];
     const preg = preguntas()[ronda.qIndex];
     const correcta = ronda.orden.indexOf(preg.ok);   // índice correcto YA mezclado
     const resp = G.respuestas[r];
-    const ap = (G.apuestas && G.apuestas[r]) || {};
     const puntos = Object.assign({ p1: 0, p2: 0 }, G.puntos);
     const racha = Object.assign({ p1: 0, p2: 0 }, G.racha);
 
     const res = { correcta };
     ["p1", "p2"].forEach(slot => {
       const { op, ms } = resp[slot];
-      const apuesta = ap[slot] || "seguro";
       let pts = 0, acierto = false;
 
       if (op === correcta) {                 // ACIERTA
@@ -230,16 +222,13 @@
         const bonus = Math.round(BONUS_RAPIDEZ * (restante / (SEG * 1000)));
         racha[slot] = (racha[slot] || 0) + 1;
         const factorRacha = 1 + 0.2 * Math.min(racha[slot] - 1, 3);   // x1 → x1.6
-        pts = Math.round((BASE + bonus) * MULT[apuesta] * factorRacha);
-      } else if (op >= 0) {                   // RESPONDIÓ MAL
-        pts = -PENAL[apuesta];
-        racha[slot] = 0;
-      } else {                                // NO RESPONDIÓ / SALTÓ
+        pts = Math.round((BASE + bonus) * factorRacha);
+      } else {                                // ERRÓ o NO RESPONDIÓ
         pts = 0;
         racha[slot] = 0;
       }
       puntos[slot] += pts;
-      res[slot] = { acierto, pts, op, apuesta };
+      res[slot] = { acierto, pts, op };
     });
 
     gameRef.update({
@@ -269,9 +258,6 @@
      ========================================================================= */
   function elegirCategoria(catId) {
     gameRef.child(`eleccion/${G.ronda}`).set(catId);
-  }
-  function apostar(tipo) {
-    gameRef.child(`apuestas/${G.ronda}/${mySlot}`).set(tipo);
   }
   function responder(opDisplay) {
     const r = G.ronda;
@@ -323,7 +309,6 @@
     const r = G.ronda || 0;
 
     if (G.phase === "categoria") vistaCategoria(r);
-    else if (G.phase === "apuesta") vistaApuesta(r);
     else if (G.phase === "pregunta") vistaPregunta(r);
     else if (G.phase === "revelar") vistaRevelar(r);
     else if (G.phase === "fin") vistaFin();
@@ -380,36 +365,7 @@
     }
   }
 
-  /* --- 2) APUESTA ---------------------------------------------------------- */
-  function vistaApuesta(r) {
-    const ronda = G.rondas && G.rondas[r];
-    const cat = ronda ? catInfo(ronda.cat) : { nombre: "…", emoji: "🎬" };
-    const miApuesta = G.apuestas && G.apuestas[r] && G.apuestas[r][mySlot];
-
-    if (miApuesta) {
-      cont.innerHTML = hud() + espera(otro(mySlot),
-        `Apostaste <b>${miApuesta}</b>. Esperando a ${esc(nick(otro(mySlot)))}…`);
-      return;
-    }
-    cont.innerHTML = hud() + `
-      <div class="tr-bloque">
-        <div class="tr-cat-tag">${cat.emoji} ${cat.nombre}</div>
-        <h3 class="tr-titulo">¿Cuánto te la jugás?</h3>
-        <p class="muted small">Apostás <b>antes</b> de ver la pregunta. Más riesgo, más puntos.</p>
-        <div class="tr-apuestas">
-          <button class="tr-apuesta seguro" data-ap="seguro">
-            <b>🟢 Seguro</b><span>×1 · sin riesgo</span></button>
-          <button class="tr-apuesta confiado" data-ap="confiado">
-            <b>🟡 Confiado</b><span>×1.5 si acertás · −40 si errás</span></button>
-          <button class="tr-apuesta allin" data-ap="allin">
-            <b>🔴 All-in</b><span>×2 si acertás · −100 si errás</span></button>
-        </div>
-      </div>`;
-    cont.querySelectorAll(".tr-apuesta").forEach(b =>
-      b.onclick = () => apostar(b.dataset.ap));
-  }
-
-  /* --- 3) PREGUNTA --------------------------------------------------------- */
+  /* --- 2) PREGUNTA --------------------------------------------------------- */
   function vistaPregunta(r) {
     const ronda = G.rondas[r];
     const preg = preguntas()[ronda.qIndex];
