@@ -139,14 +139,15 @@
 }
 .avatar-opt {
   aspect-ratio: 1;
-  font-size: 1.5rem;
   background: var(--fondo-2);
   border: 2px solid var(--borde);
   border-radius: 12px;
-  display: grid; place-items: center;
+  overflow: hidden;
+  padding: 0;
   cursor: pointer;
-  transition: border-color .12s ease, transform .08s ease;
+  transition: border-color .12s ease, transform .08s ease, box-shadow .15s ease;
 }
+.avatar-opt img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .avatar-opt[aria-pressed="true"] {
   border-color: var(--cian);
   box-shadow: var(--glow-cian);

@@ -322,13 +322,13 @@
     return `
       <div class="tr-hud">
         <div class="tr-hud-lado p1">
-          <span class="tr-av">${avatar("p1")}</span>
+          ${IC.player.html(avatar("p1"), 34)}
           <span class="tr-nom">${esc(nick("p1"))}</span>
           <span class="tr-pts">${p.p1}${fuego(rc.p1)}</span>
         </div>
         <div class="tr-ronda">Ronda<br><b>${(G.ronda || 0) + 1}/${G.total || TOTAL}</b></div>
         <div class="tr-hud-lado p2">
-          <span class="tr-av">${avatar("p2")}</span>
+          ${IC.player.html(avatar("p2"), 34)}
           <span class="tr-nom">${esc(nick("p2"))}</span>
           <span class="tr-pts">${p.p2}${fuego(rc.p2)}</span>
         </div>
@@ -336,7 +336,7 @@
   }
 
   function espera(slot, texto) {
-    return `<div class="tr-espera"><span class="tr-av big">${avatar(slot)}</span>
+    return `<div class="tr-espera">${IC.player.html(avatar(slot), 84)}
       <p class="muted">${texto}</p>
       <div class="dots"><span></span><span></span><span></span></div></div>`;
   }
@@ -426,7 +426,7 @@
       const signo = rr.pts > 0 ? "+" : "";
       const clase = rr.acierto ? "ok" : (rr.op >= 0 ? "mal" : "nada");
       return `<div class="tr-res-linea ${clase}">
-        <span>${avatar(slot)} ${esc(nick(slot))}</span>
+        <span>${IC.player.html(avatar(slot), 26)} ${esc(nick(slot))}</span>
         <b>${signo}${rr.pts}</b></div>`;
     };
 
@@ -463,9 +463,9 @@
       <div class="tr-bloque tr-fin">
         <h2 class="tr-fin-titulo ${gan === "empate" ? "" : (gano ? "gano" : "perdio")}">${titulo}</h2>
         <div class="tr-fin-marcador">
-          <div class="lado p1"><span>${avatar("p1")} ${esc(nick("p1"))}</span><b>${p.p1}</b></div>
+          <div class="lado p1"><span>${IC.player.html(avatar("p1"), 30)} ${esc(nick("p1"))}</span><b>${p.p1}</b></div>
           <div class="vs">VS</div>
-          <div class="lado p2"><span>${avatar("p2")} ${esc(nick("p2"))}</span><b>${p.p2}</b></div>
+          <div class="lado p2"><span>${IC.player.html(avatar("p2"), 30)} ${esc(nick("p2"))}</span><b>${p.p2}</b></div>
         </div>
         <p class="muted small center">${gan === "empate" ? "Empate: no suma nadie al marcador." : "El ganador sumó 1 al marcador de la sala."}</p>
         <button class="btn" id="tr-revancha">🔁 Revancha</button>

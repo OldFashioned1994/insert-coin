@@ -8,7 +8,7 @@
    (v1 → v2). Eso obliga al celu a renovar la copia guardada.
    ============================================================================ */
 
-const CACHE = "insert-coin-v8";
+const CACHE = "insert-coin-v9";
 
 // Archivos propios de la app (la "cáscara").
 const ASSETS = [
@@ -33,7 +33,19 @@ const ASSETS = [
   "./assets/pasillo.jpg",
   "./assets/snacks.jpg",
   "./assets/icons/icon-192.png",
-  "./assets/icons/icon-512.png"
+  "./assets/icons/icon-512.png",
+  "./assets/avatars/jason.png",
+  "./assets/avatars/alien.png",
+  "./assets/avatars/chucky.png",
+  "./assets/avatars/pennywise.png",
+  "./assets/avatars/freddy.png",
+  "./assets/avatars/pinhead.png",
+  "./assets/avatars/ghostface.png",
+  "./assets/avatars/myers.png",
+  "./assets/avatars/leatherface.png",
+  "./assets/avatars/zombie.png",
+  "./assets/avatars/jigsaw.png",
+  "./assets/avatars/samara.png"
 ];
 
 // Instalación: guardo una copia de los archivos (best-effort, sin romper si falla alguno).

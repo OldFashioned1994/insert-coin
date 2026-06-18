@@ -176,6 +176,20 @@ h1, h2, h3 { font-weight: 700; line-height: 1.2; }
   padding: 16px;
 }
 
+/* --- Avatares (imágenes de personaje) ------------------------------------- */
+.avimg {
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--fondo-3);
+  vertical-align: middle;
+  display: inline-block;
+}
+.avimg-emoji {        /* respaldo para avatares viejos (emoji) */
+  display: inline-grid;
+  place-items: center;
+  vertical-align: middle;
+}
+
 /* --- Utilidades ------------------------------------------------------------ */
 .stack   { display: flex; flex-direction: column; gap: var(--gap); }
 .row     { display: flex; gap: var(--gap); align-items: center; }

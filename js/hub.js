@@ -55,9 +55,11 @@
   /* --- Avatares ------------------------------------------------------------ */
   function construirAvatars() {
     const cont = $("avatars");
-    avatarSel = IC.player.data.avatar || IC.player.AVATARES[0];
+    avatarSel = IC.player.data.avatar || IC.player.AVATARES[0].id;
     cont.innerHTML = IC.player.AVATARES.map((a) =>
-      `<button class="avatar-opt" data-av="${a}" aria-pressed="${a === avatarSel}">${a}</button>`
+      `<button class="avatar-opt" data-av="${a.id}" title="${a.nombre}" aria-pressed="${a.id === avatarSel}">
+         <img src="${IC.player.src(a.id)}" alt="${a.nombre}" />
+       </button>`
     ).join("");
     cont.querySelectorAll(".avatar-opt").forEach((b) => {
       b.onclick = () => {
@@ -208,7 +210,7 @@
       const p = players[slot];
       if (!p) return "";
       return `<div class="player-chip ${slot}">
-        <span class="av">${p.avatar || "🎮"}</span>
+        ${IC.player.html(p.avatar, 30)}
         <span>${escape(p.nick)}</span>
         <span class="estado ${p.online ? "on" : ""}"></span>
       </div>`;
