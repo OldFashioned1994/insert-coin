@@ -11,6 +11,7 @@
   let avatarSel = "🎮";
   let activeGameId = null;     // juego que se está jugando ahora
   let gameController = null;   // controlador devuelto por el juego (para destruirlo)
+  let ambosPrev = false;       // para sonar al conectarse el segundo jugador
 
   /* --- Helpers de UI ------------------------------------------------------- */
   function mostrar(id) {
@@ -30,6 +31,7 @@
      ========================================================================= */
   function init() {
     IC.player.load();
+    IC.audio.init();                  // engancha el botón de silenciar y los clics
     const ok = IC.fb.init();          // intenta conectar Firebase
 
     construirAvatars();
@@ -97,7 +99,13 @@
 
   /* --- Pantalla de inicio -------------------------------------------------- */
   function wireInicio(ok) {
-    $("btn-start").onclick = () => { mostrar("screen-perfil"); setTimeout(() => $("in-nick").focus(), 100); };
+    $("btn-start").onclick = () => {
+      IC.audio.unlock();        // desbloquea el audio con este primer toque
+      IC.audio.coin();          // "insert coin"
+      IC.audio.startMusic();    // arranca la música de fondo
+      mostrar("screen-perfil");
+      setTimeout(() => $("in-nick").focus(), 100);
+    };
     $("btn-resume").onclick = async () => {
       try {
         await IC.room.resume(IC.room.getSaved());
@@ -218,8 +226,13 @@
     cont.innerHTML = chip("p1") + chip("p2");
 
     // Aviso de "esperando al otro": visible mientras no estén los dos online.
+    const ambos = IC.room.ambosConectados();
     const aviso = $("aviso-esperando");
-    if (aviso) aviso.style.display = IC.room.ambosConectados() ? "none" : "block";
+    if (aviso) aviso.style.display = ambos ? "none" : "block";
+
+    // Sonido cuando se conecta el segundo jugador.
+    if (ambos && !ambosPrev) IC.audio.join();
+    ambosPrev = ambos;
   }
 
   /* --- Entrada/salida de un juego ------------------------------------------ */

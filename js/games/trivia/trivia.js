@@ -43,6 +43,7 @@
   let local50 = {};            // opciones escondidas por el comodín 50/50 (por ronda)
   let localPista = {};         // si revelé la pista (por ronda)
   let hostTimeoutRonda = -1;   // control del "timeout de seguridad" del anfitrión
+  let sonRevelar = -1, finSonado = false, lastTick = 0;   // control de sonidos
 
   /* --- Utilidades ---------------------------------------------------------- */
   const preguntas = () => window.TRIVIA_PREGUNTAS;
@@ -293,6 +294,7 @@
     // Reinicio la partida PERO conservo "usadas" (las preguntas ya jugadas),
     // así la revancha no repite las preguntas anteriores.
     rondaConTimer = -1; local50 = {}; localPista = {}; hostTimeoutRonda = -1;
+    sonRevelar = -1; finSonado = false; lastTick = 0;
     const usadas = (G && G.usadas) ? G.usadas : {};
     gameRef.set({
       phase: "categoria", ronda: 0, total: TOTAL,
@@ -421,6 +423,14 @@
     const miRes = res[mySlot], opRes = res[otro(mySlot)];
     const ultima = (r + 1) >= (G.total || TOTAL);
 
+    // Sonido del resultado (una sola vez por ronda).
+    if (sonRevelar !== r) {
+      sonRevelar = r;
+      if (miRes.acierto) IC.audio.correct();
+      else if (miRes.op < 0) IC.audio.timeout();
+      else IC.audio.wrong();
+    }
+
     const linea = (slot) => {
       const rr = res[slot];
       const signo = rr.pts > 0 ? "+" : "";
@@ -457,6 +467,12 @@
     let gan = G.ganador;
     if (!gan) gan = p.p1 === p.p2 ? "empate" : (p.p1 > p.p2 ? "p1" : "p2");
     const gano = gan === mySlot;
+
+    // Fanfarria de cierre (una sola vez).
+    if (!finSonado) {
+      finSonado = true;
+      if (gan !== "empate") { gano ? IC.audio.win() : IC.audio.lose(); }
+    }
     const titulo = gan === "empate" ? "¡Empate! 🤝" : (gano ? "¡Ganaste! 🏆" : "Perdiste 😅");
 
     cont.innerHTML = `
@@ -481,11 +497,15 @@
     if (rondaConTimer !== r) {           // primera vez que veo esta pregunta
       rondaConTimer = r;
       finRonda = Date.now() + SEG * 1000;
+      lastTick = 99;
     }
     pararTimer();
     if (yaRespondi) { pintarBarra(); return; }
     timerInt = setInterval(() => {
       pintarBarra();
+      // Tic-tac en los últimos 5 segundos (una vez por segundo).
+      const sec = Math.ceil((finRonda - Date.now()) / 1000);
+      if (sec <= 5 && sec >= 1 && sec !== lastTick) { lastTick = sec; IC.audio.tick(); }
       if (Date.now() >= finRonda) {
         pararTimer();
         // Se acabó el tiempo y no respondí: envío "sin respuesta".
@@ -509,6 +529,7 @@
     pararTimer();
     if (gameRef && listener) gameRef.off("value", listener);
     G = {}; rondaConTimer = -1; local50 = {}; localPista = {}; hostTimeoutRonda = -1;
+    sonRevelar = -1; finSonado = false; lastTick = 0;
   }
 
   /* --- Registro en el hub -------------------------------------------------- */

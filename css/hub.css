@@ -261,6 +261,19 @@
 .chat-form { display: flex; gap: 8px; margin-top: 8px; }
 .chat-form .input { font-size: 1rem; }
 
+/* Botón de silenciar (fijo, abajo a la izquierda) */
+.audio-btn {
+  position: fixed;
+  left: 14px; bottom: calc(14px + env(safe-area-inset-bottom));
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--fondo-2); color: var(--texto);
+  border: 1px solid var(--borde);
+  font-size: 1.1rem; cursor: pointer;
+  z-index: 600; opacity: .75;
+  display: grid; place-items: center;
+}
+.audio-btn:active { transform: scale(.92); }
+
 /* Burbuja flotante para abrir el chat (con contador de no leídos) */
 .chat-fab {
   position: fixed;

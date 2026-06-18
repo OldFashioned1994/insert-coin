@@ -45,6 +45,7 @@ IC.chat = {
     this._el.fab.classList.remove("hidden");
     this._el.msgs.innerHTML = "";
     this._noLeidos = 0;
+    this._t0 = Date.now();          // para no sonar con el historial inicial
     this._actualizarBadge();
 
     // Escucho los últimos 50 mensajes de la sala.
@@ -81,6 +82,8 @@ IC.chat = {
       this._noLeidos++;
       this._actualizarBadge();
     }
+    // Blip al recibir un mensaje del otro (no con el historial inicial).
+    if (!mio && Date.now() - (this._t0 || 0) > 1500) IC.audio.chat();
   },
 
   abrir() {

@@ -8,7 +8,7 @@
    (v1 → v2). Eso obliga al celu a renovar la copia guardada.
    ============================================================================ */
 
-const CACHE = "insert-coin-v10";
+const CACHE = "insert-coin-v11";
 
 // Archivos propios de la app (la "cáscara").
 const ASSETS = [
@@ -19,6 +19,7 @@ const ASSETS = [
   "./css/hub.css",
   "./js/firebase-config.js",
   "./js/firebase.js",
+  "./js/audio.js",
   "./js/player.js",
   "./js/room.js",
   "./js/chat.js",
