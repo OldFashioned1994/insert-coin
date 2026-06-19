@@ -204,17 +204,19 @@
     let pool = base.filter(x => !usadas[x.i]);   // sin usar
     if (!pool.length) pool = base;               // agotado: reciclo dentro del mismo filtro
 
-    const pick = elegirPonderado(pool);          // favorece las difíciles
+    const pick = elegirPonderado(pool);          // favorece fácil-media (para aficionados)
     return { qIndex: pick.i, orden: shuffle([0, 1, 2, 3]), cat: pick.p.cat };
   }
 
-  /** Elige al azar PERO ponderando por dificultad: una dif 3 tiene el triple de
-      chances que una dif 1. Así el juego se inclina hacia lo difícil. */
+  /** Elige al azar ponderando hacia lo FÁCIL-MEDIO (para aficionados): las
+      preguntas fáciles y medias tienen el triple de chances que las difíciles,
+      así el juego es accesible y lo difícil aparece de vez en cuando. */
   function elegirPonderado(pool) {
+    const peso = (d) => (d >= 3 ? 1 : 3);   // dif 1 y 2 → 3×; dif 3 → 1×
     let total = 0;
-    for (const x of pool) total += (x.p.dif || 2);
+    for (const x of pool) total += peso(x.p.dif || 2);
     let r = Math.random() * total;
-    for (const x of pool) { r -= (x.p.dif || 2); if (r <= 0) return x; }
+    for (const x of pool) { r -= peso(x.p.dif || 2); if (r <= 0) return x; }
     return pool[pool.length - 1];
   }
 
