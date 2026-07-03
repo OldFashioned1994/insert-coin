@@ -204,7 +204,7 @@
 
   function resultadoHTML() {
     const rw = G.roundWinner, t = G.taps || {};
-    const nom = (s) => (IC.room.players[s] ? IC.room.players[s].nombre : (s === "p1" ? "Jugador 1" : "Jugador 2"));
+    const nom = (s) => (IC.room.players[s] ? IC.room.players[s].nick : (s === "p1" ? "Jugador 1" : "Jugador 2"));
     const tiempo = (s) => (t[s] === -1 ? "se adelantó" : (t[s] >= NO_TAP || t[s] == null ? "no tocó" : t[s] + " ms"));
 
     let titulo, clase;

@@ -1,0 +1,74 @@
+/* ============================================================================
+   INSERT COIN — dibujar.css  (Dibujá y Adiviná)
+   ============================================================================ */
+
+.dib-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; max-width: 520px; width: 100%; margin: 4px auto 6px;
+  font-family: "Press Start 2P", monospace;
+}
+.dib-round { font-size: .62rem; color: var(--texto-tenue); }
+.dib-word { flex: 1; text-align: center; font-size: .8rem; letter-spacing: 2px; color: var(--cian); }
+.dib-word b { color: var(--amarillo); }
+.dib-len { font-size: .6rem; color: var(--texto-tenue); letter-spacing: 0; }
+.dib-timer {
+  font-size: .9rem; color: var(--verde, #39ff14); min-width: 2.2em; text-align: right;
+}
+.dib-timer.urgente { color: var(--rojo); animation: dib-blink .5s steps(2) infinite; }
+@keyframes dib-blink { 50% { opacity: .4; } }
+
+.dib-scores {
+  display: flex; align-items: center; justify-content: space-between;
+  max-width: 520px; width: 100%; margin: 0 auto 6px; font-size: .95rem;
+}
+.dib-sc { display: flex; align-items: center; gap: 6px; font-family: "Press Start 2P", monospace; font-size: .82rem; }
+.dib-sc.p1 { color: var(--cian); } .dib-sc.p2 { color: var(--magenta); }
+
+/* --- Escenario / canvas --------------------------------------------------- */
+.dib-stage { position: relative; max-width: 520px; width: 100%; margin: 0 auto; }
+.dib-canvas {
+  width: 100%; display: block; border-radius: 14px;
+  background: #0a0714; border: 2px solid var(--borde);
+  touch-action: none; cursor: crosshair;
+}
+.dib-overlay {
+  position: absolute; inset: 0; border-radius: 14px;
+  background: rgba(8, 4, 16, .9); backdrop-filter: blur(2px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; text-align: center; padding: 20px; z-index: 2;
+}
+.dib-overlay.hidden { display: none; }
+.dib-ov-tit { font-family: "Press Start 2P", monospace; font-size: 1.1rem; line-height: 1.5; color: var(--amarillo); }
+.dib-ov-sub { font-size: .9rem; color: var(--texto-tenue); }
+.dib-ov-word { font-size: 1rem; } .dib-ov-word b { color: var(--cian); }
+.dib-ops { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 260px; }
+.dib-op { text-transform: capitalize; }
+.dib-ov-fin { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 260px; margin-top: 6px; }
+
+/* --- Herramientas del dibujante ------------------------------------------ */
+.dib-tools {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  max-width: 520px; width: 100%; margin: 10px auto 0; flex-wrap: wrap;
+}
+.dib-tools.hidden, .dib-guess.hidden { display: none; }
+.dib-color {
+  width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25);
+  cursor: pointer; padding: 0; transition: transform .1s ease;
+}
+.dib-color.sel { border-color: #fff; transform: scale(1.18); box-shadow: 0 0 8px rgba(255,255,255,.5); }
+.dib-tool {
+  width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--borde);
+  background: var(--fondo-2); cursor: pointer; font-size: 1rem;
+}
+
+/* --- Zona de adivinar ----------------------------------------------------- */
+.dib-guess { max-width: 520px; width: 100%; margin: 10px auto 0; }
+.dib-feed { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; min-height: 1.4em; }
+.dib-bub {
+  align-self: flex-start; background: var(--fondo-2); border: 1px solid var(--borde);
+  border-radius: 12px; padding: 5px 10px; font-size: .9rem; max-width: 85%;
+}
+.dib-bub.mio { align-self: flex-end; border-color: var(--cian); }
+.dib-bub.ok { border-color: var(--verde, #39ff14); color: var(--verde, #39ff14); }
+.dib-form { display: flex; gap: 8px; }
+.dib-form .input { flex: 1; }

@@ -174,7 +174,7 @@
         </div>
         <p class="rd-tip muted">Si te disparás y sale <b>vacía</b>, seguís jugando.</p>`;
     } else {
-      const nom = IC.room.players[G.turn] ? IC.room.players[G.turn].nombre : "el rival";
+      const nom = IC.room.players[G.turn] ? IC.room.players[G.turn].nick : "el rival";
       html += `<div class="rd-estado">${G.pending ? "🎲 Girando el tambor…" : "Turno de " + nom + "…"}</div>`;
     }
 
@@ -190,7 +190,7 @@
   }
 
   function flashHTML(shot) {
-    const nom = (s) => (IC.room.players[s] ? IC.room.players[s].nombre : (s === "p1" ? "Jugador 1" : "Jugador 2"));
+    const nom = (s) => (IC.room.players[s] ? IC.room.players[s].nick : (s === "p1" ? "Jugador 1" : "Jugador 2"));
     const quien = shot.target === "rival" ? `${nom(shot.by)} → ${nom(otro(shot.by))}` : `${nom(shot.by)} probó suerte`;
     if (shot.outcome === "live") {
       return `<div class="rd-flash live" style="background-image:url('${MONSTRUO}')">
