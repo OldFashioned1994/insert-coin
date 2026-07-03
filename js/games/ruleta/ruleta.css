@@ -1,0 +1,69 @@
+/* ============================================================================
+   INSERT COIN — ruleta.css  (Ruleta del Diablo)
+   ============================================================================ */
+
+.rd-hud {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; max-width: 460px; width: 100%; margin: 6px auto 10px;
+}
+.rd-p { display: flex; align-items: center; gap: 6px; font-family: "Press Start 2P", monospace; font-size: .9rem; }
+.rd-p.p1 { color: var(--cian); text-shadow: var(--glow-cian); }
+.rd-p.p2 { color: var(--magenta); text-shadow: var(--glow-magenta); }
+.rd-vs { font-size: .62rem; color: var(--texto-tenue); font-family: "Press Start 2P", monospace; letter-spacing: 1px; }
+.rd-almas { font-size: 1rem; letter-spacing: 1px; }
+
+/* --- Tambor / revólver --------------------------------------------------- */
+.rd-tambor { text-align: center; margin: 8px auto 14px; max-width: 460px; }
+.rd-rev {
+  width: min(72vw, 300px); display: block; margin: 0 auto;
+  filter: drop-shadow(0 0 16px rgba(255,46,151,.35));
+  animation: rd-float 3.4s ease-in-out infinite;
+}
+@keyframes rd-float { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-8px) rotate(1deg); } }
+.rd-carga {
+  display: flex; justify-content: center; gap: 16px; margin-top: 6px;
+  font-family: "Press Start 2P", monospace; font-size: .72rem;
+}
+.rd-live  { color: #ff5a6e; }
+.rd-blank { color: var(--texto-tenue); }
+
+/* --- Estado / acciones --------------------------------------------------- */
+.rd-estado { text-align: center; font-size: .95rem; color: var(--texto-tenue); margin: 6px 0; min-height: 1.4em; }
+.rd-estado.activo.p1 { color: var(--cian); }
+.rd-estado.activo.p2 { color: var(--magenta); }
+.rd-acciones { display: flex; flex-direction: column; gap: 10px; max-width: 380px; margin: 10px auto 0; }
+.rd-tip { text-align: center; font-size: .82rem; margin-top: 12px; }
+
+.rd-fin { display: flex; flex-direction: column; gap: 10px; max-width: 380px; margin: 14px auto 0; text-align: center; }
+.rd-fin-tit { font-family: "Press Start 2P", monospace; font-size: 1.05rem; line-height: 1.5; margin-bottom: 8px; }
+.rd-fin.gano   .rd-fin-tit { color: var(--verde, #39ff14); text-shadow: 0 0 14px rgba(57,255,20,.5); }
+.rd-fin.perdio .rd-fin-tit { color: var(--rojo); text-shadow: 0 0 14px rgba(255,59,92,.5); }
+
+/* --- Flash de revelado --------------------------------------------------- */
+.rd-flash {
+  flex: 1; min-height: 46vh; margin: 0 auto; max-width: 460px;
+  border-radius: 16px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px; text-align: center;
+  background-size: cover; background-position: center; position: relative;
+  border: 3px solid var(--borde);
+}
+.rd-flash-big { font-family: "Press Start 2P", monospace; font-size: 1.5rem; position: relative; z-index: 1; }
+.rd-flash-sub { font-size: .95rem; opacity: .92; position: relative; z-index: 1; }
+.rd-flash.live {
+  border-color: var(--rojo); color: #fff;
+  box-shadow: 0 0 34px rgba(255,59,92,.6), 0 0 60px rgba(255,59,92,.3) inset;
+  animation: rd-shake .35s steps(3) 2;
+}
+.rd-flash.live::after {
+  content: ""; position: absolute; inset: 0; border-radius: 13px;
+  background: radial-gradient(circle at 50% 45%, rgba(0,0,0,.25), rgba(0,0,0,.72));
+}
+.rd-flash.live .rd-flash-big { color: #ff5a6e; text-shadow: 0 0 12px #ff2e97, 0 0 22px #ff2e97; }
+.rd-flash.blank {
+  border-color: var(--texto-tenue); color: var(--texto-tenue);
+  background: radial-gradient(circle at 50% 45%, #0f1830 0%, #08040d 78%);
+}
+@keyframes rd-shake {
+  0% { transform: translateX(0); } 33% { transform: translateX(-6px); }
+  66% { transform: translateX(6px); } 100% { transform: translateX(0); }
+}
