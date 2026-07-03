@@ -8,7 +8,7 @@
    (v1 → v2). Eso obliga al celu a renovar la copia guardada.
    ============================================================================ */
 
-const CACHE = "insert-coin-v17";
+const CACHE = "insert-coin-v18";
 
 // Archivos propios de la app (la "cáscara").
 const ASSETS = [
@@ -29,6 +29,8 @@ const ASSETS = [
   "./js/games/trivia/trivia.css",
   "./js/games/trivia/trivia.js",
   "./js/games/trivia/preguntas.js",
+  "./js/games/conecta4/conecta4.css",
+  "./js/games/conecta4/conecta4.js",
   "./assets/portada.jpg",
   "./assets/lobby.jpg",
   "./assets/pasillo.jpg",

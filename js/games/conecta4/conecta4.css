@@ -1,0 +1,55 @@
+/* ============================================================================
+   INSERT COIN — conecta4.css  (4 en Línea Maldito)
+   ============================================================================ */
+
+.c4-top {
+  text-align: center;
+  font-family: "Press Start 2P", monospace;
+  font-size: .85rem;
+  padding: 12px 8px;
+  color: var(--texto-tenue);
+}
+.c4-top.activo.p1 { color: var(--cian); text-shadow: var(--glow-cian); }
+.c4-top.activo.p2 { color: var(--magenta); text-shadow: var(--glow-magenta); }
+
+.c4-board {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  background: var(--fondo-2);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 8px;
+  max-width: 430px;
+  width: 100%;
+  margin: 0 auto;
+}
+.c4-cell {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--fondo-3);
+  border: 1px solid var(--borde);
+  cursor: pointer;
+  padding: 0;
+  transition: transform .06s ease, box-shadow .15s ease;
+}
+.c4-cell:not([disabled]):active { transform: scale(.9); }
+.c4-cell.p1 {
+  background: radial-gradient(circle at 35% 30%, #a6ffff, var(--cian) 62%, #007a8a);
+  box-shadow: var(--glow-cian);
+  border-color: var(--cian);
+}
+.c4-cell.p2 {
+  background: radial-gradient(circle at 35% 30%, #ffb3d9, var(--magenta) 62%, #a10050);
+  box-shadow: var(--glow-magenta);
+  border-color: var(--magenta);
+}
+.c4-cell[disabled] { cursor: default; }
+
+.c4-fin {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 20px auto 0;
+  max-width: 430px;
+}
