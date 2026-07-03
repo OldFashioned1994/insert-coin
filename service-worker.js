@@ -8,7 +8,7 @@
    (v1 → v2). Eso obliga al celu a renovar la copia guardada.
    ============================================================================ */
 
-const CACHE = "insert-coin-v20";
+const CACHE = "insert-coin-v21";
 
 // Archivos propios de la app (la "cáscara").
 const ASSETS = [
@@ -35,6 +35,10 @@ const ASSETS = [
   "./js/games/navalterror/navalterror.js",
   "./js/games/memoria/memoria.css",
   "./js/games/memoria/memoria.js",
+  "./js/games/reflejos/reflejos.css",
+  "./js/games/reflejos/reflejos.js",
+  "./assets/games/jumpscare1.png",
+  "./assets/games/jumpscare2.png",
   "./assets/portada.jpg",
   "./assets/lobby.jpg",
   "./assets/pasillo.jpg",
