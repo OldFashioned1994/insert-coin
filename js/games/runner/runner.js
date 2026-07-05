@@ -17,9 +17,9 @@
   const PLAYER_X = 64;
   const PPM = 11;                         // píxeles por metro
   const VIEW_M = W / PPM;                 // metros visibles a la derecha
-  const BASE_SPEED = 12, SPEED_GROWTH = 0.06, SPEED_CAP = 38;  // m/s (más rápido y acelera más)
-  const JUMP_V = -700;
-  const FALL_EXTRA = 1800;      // gravedad extra al caer (cae más rápido, se puede resaltar antes)
+  const BASE_SPEED = 11, SPEED_GROWTH = 0.03, SPEED_CAP = 26;  // m/s (velocidad manejable)
+  const JUMP_V = -640;
+  const FALL_EXTRA = 2600;      // gravedad extra al caer: salto corto y seco (se re-salta enseguida)
 
   let cont, gameRef, listener, G = {}, mySlot;
   let refs = {}, phaserGame = null, mounted = false;
@@ -47,7 +47,7 @@
     const r = mulberry32(seed >>> 0);
     const arr = []; let d = 40;
     for (let i = 0; i < n; i++) {
-      d += 12 + Math.floor(r() * 10);          // separación 12..21 m
+      d += 13 + Math.floor(r() * 11);          // separación 13..23 m (un respiro más)
       const k = r();
       const kind = k < 0.6 ? 1 : (k < 0.85 ? 2 : 3);   // 1=pincho, 2=triple, 3=alto
       arr.push({ dist: d, kind });
@@ -211,7 +211,7 @@
       parent: refs.stage,
       width: W, height: H,
       backgroundColor: "#0D0221",
-      physics: { default: "arcade", arcade: { gravity: { y: 2200 }, debug: false } },
+      physics: { default: "arcade", arcade: { gravity: { y: 2600 }, debug: false } },
       scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_HORIZONTALLY },
       scene: [ensureScene()]
     };

@@ -8,7 +8,7 @@
    (v1 → v2). Eso obliga al celu a renovar la copia guardada.
    ============================================================================ */
 
-const CACHE = "insert-coin-v27";
+const CACHE = "insert-coin-v28";
 
 // Archivos propios de la app (la "cáscara").
 const ASSETS = [
@@ -69,8 +69,10 @@ self.addEventListener("activate", (e) => {
   );
 });
 
-// Búsquedas: solo intervengo en MIS archivos (mismo origen y método GET).
-// Lo de Firebase, Google Fonts y demás va siempre por red.
+// Estrategia NETWORK-FIRST para mis archivos (mismo origen, GET): estando online
+// siempre sirvo lo último y actualizo la copia; sin conexión, caigo al caché.
+// Así los cambios se ven al toque, sin tener que recargar dos veces.
+// Lo de Firebase, Google Fonts y demás va siempre por red (no lo toco).
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
@@ -78,16 +80,14 @@ self.addEventListener("fetch", (e) => {
   if (url.origin !== self.location.origin) return;   // recursos externos: red directa
 
   e.respondWith(
-    caches.match(req).then((cacheado) =>
-      cacheado ||
-      fetch(req).then((resp) => {
-        // Guardo una copia para la próxima (si salió bien).
-        const copia = resp.clone();
-        caches.open(CACHE).then((c) => c.put(req, copia)).catch(() => {});
-        return resp;
-      }).catch(() =>
-        // Sin conexión y sin copia: si pedían una página, devuelvo el index.
-        req.mode === "navigate" ? caches.match("./index.html") : undefined
+    fetch(req).then((resp) => {
+      const copia = resp.clone();
+      caches.open(CACHE).then((c) => c.put(req, copia)).catch(() => {});
+      return resp;
+    }).catch(() =>
+      // Sin conexión: uso la copia guardada (y el index para navegaciones).
+      caches.match(req).then((cacheado) =>
+        cacheado || (req.mode === "navigate" ? caches.match("./index.html") : undefined)
       )
     )
   );
