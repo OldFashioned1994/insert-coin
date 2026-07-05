@@ -17,8 +17,8 @@
   const PLAYER_X = 64;
   const PPM = 11;                         // píxeles por metro
   const VIEW_M = W / PPM;                 // metros visibles a la derecha
-  const BASE_SPEED = 9, SPEED_GROWTH = 0.02, SPEED_CAP = 27;   // m/s
-  const JUMP_V = -640;
+  const BASE_SPEED = 12, SPEED_GROWTH = 0.06, SPEED_CAP = 38;  // m/s (más rápido y acelera más)
+  const JUMP_V = -720;
 
   let cont, gameRef, listener, G = {}, mySlot;
   let refs = {}, phaserGame = null, mounted = false;
@@ -44,10 +44,12 @@
   }
   function generarObstaculos(seed, n) {
     const r = mulberry32(seed >>> 0);
-    const arr = []; let d = 42;
+    const arr = []; let d = 40;
     for (let i = 0; i < n; i++) {
-      d += 14 + Math.floor(r() * 15);          // separación 14..28 m
-      arr.push({ dist: d, h: 1 + Math.floor(r() * 2) });   // alto 1..2
+      d += 12 + Math.floor(r() * 10);          // separación 12..21 m
+      const k = r();
+      const kind = k < 0.6 ? 1 : (k < 0.85 ? 2 : 3);   // 1=pincho, 2=triple, 3=alto
+      arr.push({ dist: d, kind });
     }
     return arr;
   }
@@ -201,12 +203,14 @@
   function montarPhaser(seed, startAt) {
     mounted = true;
     RS.seed = seed >>> 0; RS.startAt = startAt;
+    RS.myAvatar = (IC.room.players[mySlot] || {}).avatar || "jason";
+    RS.oppAvatar = (IC.room.players[otro(mySlot)] || {}).avatar || "freddy";
     const config = {
       type: Phaser.AUTO,
       parent: refs.stage,
       width: W, height: H,
       backgroundColor: "#0D0221",
-      physics: { default: "arcade", arcade: { gravity: { y: 1500 }, debug: false } },
+      physics: { default: "arcade", arcade: { gravity: { y: 1800 }, debug: false } },
       scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_HORIZONTALLY },
       scene: [ensureScene()]
     };
@@ -224,25 +228,35 @@
     SceneClass = class RunnerScene extends Phaser.Scene {
       constructor() { super({ key: "RunnerScene" }); }
 
+      preload() {
+        // avatares elegidos (mi personaje y el del rival)
+        if (IC.player.existe(RS.myAvatar)) this.load.image("run_me", IC.player.src(RS.myAvatar));
+        if (IC.player.existe(RS.oppAvatar)) this.load.image("run_op", IC.player.src(RS.oppAvatar));
+      }
+
       create() {
         this.dist = 0; this.speed = BASE_SPEED; this.dead = false;
         this.started = false; this.lastBc = 0;
         this.obs = generarObstaculos(RS.seed, 2500);
         crearTexturas(this);
 
-        // suelo (estático) + jugador
+        // suelo estático
         this.ground = this.physics.add.staticImage(W / 2, GROUND_Y + 6, "run_ground").setDisplaySize(W, 12).refreshBody();
-        this.player = this.physics.add.sprite(PLAYER_X, GROUND_Y - 40, "run_player");
-        this.player.setDepth(5);
+
+        // jugador = caja física invisible (hitbox parejo) + avatar encima
+        this.player = this.physics.add.sprite(PLAYER_X, GROUND_Y - 40, "run_hit").setVisible(false);
         this.physics.add.collider(this.player, this.ground);
+        const meKey = this.textures.exists("run_me") ? "run_me" : "run_box";
+        this.meImg = this.add.image(PLAYER_X, this.player.y, meKey).setDepth(5).setDisplaySize(40, 40);
 
-        // fantasma del rival
-        this.ghost = this.add.image(PLAYER_X, GROUND_Y - 18, "run_ghost").setDepth(4).setAlpha(0.55);
+        // fantasma del rival = su avatar, translúcido
+        const opKey = this.textures.exists("run_op") ? "run_op" : "run_box";
+        this.ghost = this.add.image(PLAYER_X, GROUND_Y - 20, opKey).setDepth(4).setAlpha(0.5).setDisplaySize(34, 34);
 
-        // pool de obstáculos
+        // pool de obstáculos (pinchos)
         this.pool = [];
-        for (let i = 0; i < 10; i++) {
-          const im = this.add.image(-99, GROUND_Y, "run_obs").setOrigin(0.5, 1).setDepth(3).setVisible(false);
+        for (let i = 0; i < 12; i++) {
+          const im = this.add.image(-99, GROUND_Y, "run_spike").setOrigin(0.5, 1).setDepth(3).setVisible(false);
           this.pool.push(im);
         }
 
@@ -255,11 +269,27 @@
         this.cd = this.add.text(W / 2, H / 2 - 30, "", { fontFamily: "monospace", fontSize: "56px", color: "#00F0FF" }).setOrigin(0.5).setDepth(11);
         this.msg = this.add.text(W / 2, H / 2 + 40, "", { fontFamily: "monospace", fontSize: "22px", color: "#FF2E97" }).setOrigin(0.5).setDepth(11);
 
-        // input: saltar
-        const saltar = () => this.saltar();
-        this.input.on("pointerdown", saltar);
-        this.input.keyboard && this.input.keyboard.on("keydown-SPACE", saltar);
-        this.input.keyboard && this.input.keyboard.on("keydown-UP", saltar);
+        // input estilo Geometry Dash: tap salta; MANTENER = salta en cadena
+        this.holding = false;
+        const down = () => { this.holding = true; this.saltar(); };
+        const up = () => { this.holding = false; };
+        this.input.on("pointerdown", down);
+        this.input.on("pointerup", up);
+        if (this.input.keyboard) {
+          this.input.keyboard.on("keydown-SPACE", down); this.input.keyboard.on("keyup-SPACE", up);
+          this.input.keyboard.on("keydown-UP", down); this.input.keyboard.on("keyup-UP", up);
+        }
+
+        // estela de partículas (trail) siguiendo al cubo
+        this.trail = this.add.particles(0, 0, "run_spark", {
+          lifespan: 320, speed: 0, scale: { start: 1, end: 0 },
+          alpha: { start: 0.75, end: 0 }, frequency: 30,
+          tint: [0x00F0FF, 0xFF2E97, 0xFFD300], blendMode: "ADD"
+        }).setDepth(3);
+        this.trail.startFollow(this.meImg);
+
+        // fondo que late
+        this.tweens.add({ targets: this.stars, alpha: { from: 0.28, to: 0.6 }, duration: 380, yoyo: true, repeat: -1 });
       }
 
       saltar() {
@@ -272,6 +302,9 @@
       }
 
       update(time, delta) {
+        // el avatar siempre sigue a la caja física
+        this.meImg.setPosition(this.player.x, this.player.y);
+
         // cuenta regresiva / arranque sincronizado
         if (!this.started) {
           const falta = RS.startAt - Date.now();
@@ -284,6 +317,11 @@
         const dt = Math.min(delta, 50) / 1000;
 
         if (!this.dead) {
+          // mantener apretado = saltar apenas toca el piso (Geometry Dash) + giro en el aire
+          const grounded = this.player.body && (this.player.body.blocked.down || this.player.body.touching.down);
+          if (this.holding && grounded) this.saltar();
+          if (grounded) this.meImg.rotation = 0; else this.meImg.rotation += 9 * dt;
+
           this.speed = Math.min(SPEED_CAP, BASE_SPEED + this.dist * SPEED_GROWTH);
           this.dist += this.speed * dt;
           this.floor.tilePositionX += this.speed * dt * PPM;
@@ -300,38 +338,54 @@
       }
 
       obstaculosUpdate() {
-        // asigno sprites del pool a los obstáculos visibles
+        // asigno sprites del pool a los obstáculos visibles (según su tipo)
         let pi = 0;
         for (let i = 0; i < this.obs.length && pi < this.pool.length; i++) {
           const rel = this.obs[i].dist - this.dist;
           if (rel < -2) continue;
           if (rel > VIEW_M + 2) break;
           const im = this.pool[pi++];
-          const oh = 22 * this.obs[i].h;
-          im.setVisible(true).setPosition(PLAYER_X + rel * PPM, GROUND_Y).setDisplaySize(20, oh);
-          im._h = oh;
+          const k = this.obs[i].kind;
+          const tex = k === 2 ? "run_spike3" : (k === 3 ? "run_tall" : "run_spike");
+          const dw = k === 2 ? 44 : 20, dh = k === 3 ? 40 : 24;
+          im.setVisible(true).setTexture(tex).setPosition(PLAYER_X + rel * PPM, GROUND_Y).setDisplaySize(dw, dh);
+          im._kind = k;
         }
         for (; pi < this.pool.length; pi++) this.pool[pi].setVisible(false);
       }
 
       chequearChoque() {
-        const pb = this.player.getBounds();
+        // hitbox perdonador (estilo GD): cubo más chico que el dibujo, base del pincho angosta
+        const pr = new Phaser.Geom.Rectangle(this.player.x - 9, this.player.y - 12, 18, 24);
         for (const im of this.pool) {
           if (!im.visible) continue;
-          const ob = im.getBounds();
-          if (Phaser.Geom.Intersects.RectangleToRectangle(pb, ob)) { this.morir(); return; }
+          const k = im._kind || 1;
+          const halfW = k === 2 ? 17 : 5;
+          const top = GROUND_Y - (k === 3 ? 30 : 14);
+          const or = new Phaser.Geom.Rectangle(im.x - halfW, top, halfW * 2, GROUND_Y - top);
+          if (Phaser.Geom.Intersects.RectangleToRectangle(pr, or)) { this.morir(); return; }
         }
       }
 
       morir() {
         if (this.dead) return;
-        this.dead = true;
+        this.dead = true; this.holding = false;
         this.player.setVelocity(0, 0); this.player.body.allowGravity = false;
-        this.player.setTint(0xff2e97);
-        this.cameras.main.shake(250, 0.02);
+        if (this.trail) this.trail.stop();
+        this.explotar();
+        this.meImg.setVisible(false);
+        this.cameras.main.shake(260, 0.025);
         this.msg.setText("¡MORISTE! " + Math.floor(this.dist) + " m");
         if (IC.audio) IC.audio.wrong();
         RS.onDeath(Math.floor(this.dist));
+      }
+      explotar() {
+        const b = this.add.particles(this.meImg.x, this.meImg.y, "run_spark", {
+          lifespan: 480, speed: { min: 60, max: 240 }, scale: { start: 1.3, end: 0 },
+          alpha: { start: 1, end: 0 }, tint: [0x00F0FF, 0xFF2E97, 0xFFD300],
+          blendMode: "ADD", emitting: false
+        }).setDepth(6);
+        b.explode(26, this.meImg.x, this.meImg.y);
       }
 
       ghostUpdate() {
@@ -347,28 +401,38 @@
 
   function crearTexturas(sc) {
     const g = sc.make.graphics({ x: 0, y: 0, add: false });
-    // jugador (cian con brillo)
-    g.fillStyle(0x00243a, 1); g.fillRoundedRect(0, 0, 30, 38, 7);
-    g.fillStyle(0x00F0FF, 1); g.fillRoundedRect(4, 4, 22, 30, 5);
-    g.fillStyle(0x0d0221, 1); g.fillCircle(20, 14, 3);
-    g.generateTexture("run_player", 30, 38); g.clear();
-    // fantasma
-    g.fillStyle(0xffffff, 0.9); g.fillRoundedRect(0, 0, 30, 38, 7);
-    g.generateTexture("run_ghost", 30, 38); g.clear();
-    // obstáculo (magenta, tipo lápida/púa)
-    g.fillStyle(0xFF2E97, 1); g.fillRect(0, 0, 20, 44);
-    g.fillStyle(0x7a0033, 1); g.fillRect(0, 0, 20, 6);
-    g.generateTexture("run_obs", 20, 44); g.clear();
+    // caja física invisible (hitbox parejo)
+    g.fillStyle(0x00F0FF, 1); g.fillRect(0, 0, 34, 40);
+    g.generateTexture("run_hit", 34, 40); g.clear();
+    // avatar fallback (si el id no existe)
+    g.fillStyle(0x00243a, 1); g.fillRoundedRect(0, 0, 40, 40, 8);
+    g.fillStyle(0x00F0FF, 1); g.fillRoundedRect(5, 5, 30, 30, 6);
+    g.generateTexture("run_box", 40, 40); g.clear();
+    // pincho simple
+    dibujarPincho(g, 0, 20, 24); g.generateTexture("run_spike", 20, 24); g.clear();
+    // triple pincho
+    dibujarPincho(g, 0, 14, 24); dibujarPincho(g, 15, 14, 24); dibujarPincho(g, 30, 14, 24);
+    g.generateTexture("run_spike3", 44, 24); g.clear();
+    // pincho alto
+    dibujarPincho(g, 0, 20, 40); g.generateTexture("run_tall", 20, 40); g.clear();
+    // chispa (partículas)
+    g.fillStyle(0xffffff, 1); g.fillRect(0, 0, 7, 7); g.generateTexture("run_spark", 7, 7); g.clear();
     // piso neón
     g.fillStyle(0x140a24, 1); g.fillRect(0, 0, 32, 24);
     g.fillStyle(0xFF2E97, 0.9); g.fillRect(0, 0, 32, 3);
     g.fillStyle(0x00F0FF, 0.5); g.fillRect(0, 6, 16, 2);
     g.generateTexture("run_floor", 32, 24); g.clear();
+    // suelo (bloque base)
+    g.fillStyle(0x140a24, 1); g.fillRect(0, 0, 8, 8); g.generateTexture("run_ground", 8, 8); g.clear();
     // estrellas de fondo
     g.fillStyle(0x1b1040, 1); g.fillRect(0, 0, 60, 60);
     g.fillStyle(0x3a2a6a, 1); g.fillCircle(10, 12, 1.5); g.fillCircle(44, 30, 1.5); g.fillCircle(26, 48, 1);
     g.generateTexture("run_stars", 60, 60); g.clear();
     g.destroy();
+  }
+  function dibujarPincho(g, x, w, h) {
+    g.fillStyle(0xFF2E97, 1); g.fillTriangle(x, h, x + w / 2, 0, x + w, h);
+    g.fillStyle(0x00F0FF, 0.9); g.fillTriangle(x + w / 2 - 2, 7, x + w / 2, 0, x + w / 2 + 2, 7);
   }
 
   /* --- overlay helpers ----------------------------------------------------- */
