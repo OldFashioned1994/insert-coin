@@ -1,0 +1,35 @@
+/* ============================================================================
+   INSERT COIN — runner.css  (Fuga Maldita)
+   ============================================================================ */
+
+.run-scores {
+  display: flex; align-items: center; justify-content: space-between;
+  max-width: 460px; width: 100%; margin: 4px auto 6px;
+}
+.run-sc { display: flex; align-items: center; gap: 6px; font-family: "Press Start 2P", monospace; font-size: .82rem; }
+.run-sc.p1 { color: var(--cian); } .run-sc.p2 { color: var(--magenta); }
+
+.run-stage {
+  position: relative;
+  width: 100%; max-width: 460px; margin: 0 auto;
+  height: min(64vh, 620px);
+  border-radius: 14px; overflow: hidden;
+  border: 2px solid var(--borde); background: #0D0221;
+}
+.run-stage canvas { display: block; margin: 0 auto; }
+
+.run-overlay {
+  position: absolute; inset: 0; z-index: 3;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; text-align: center; padding: 22px;
+  background: rgba(8, 4, 16, .82); backdrop-filter: blur(2px);
+}
+/* el overlay vive DENTRO del stage para tapar el canvas */
+.run-stage { }
+.run-overlay.hidden { display: none; }
+
+.run-ov-tit { font-family: "Press Start 2P", monospace; font-size: 1.15rem; line-height: 1.5; color: var(--amarillo); }
+.run-ov-sub { font-size: .95rem; color: var(--texto-tenue); line-height: 1.6; }
+.run-ov-dist { font-size: 1.05rem; } .run-ov-dist b { color: var(--cian); }
+.run-esperando { font-size: .95rem; color: var(--texto-tenue); }
+.run-ov-fin { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 260px; margin-top: 6px; }
