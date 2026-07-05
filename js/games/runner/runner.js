@@ -18,7 +18,8 @@
   const PPM = 11;                         // píxeles por metro
   const VIEW_M = W / PPM;                 // metros visibles a la derecha
   const BASE_SPEED = 12, SPEED_GROWTH = 0.06, SPEED_CAP = 38;  // m/s (más rápido y acelera más)
-  const JUMP_V = -720;
+  const JUMP_V = -700;
+  const FALL_EXTRA = 1800;      // gravedad extra al caer (cae más rápido, se puede resaltar antes)
 
   let cont, gameRef, listener, G = {}, mySlot;
   let refs = {}, phaserGame = null, mounted = false;
@@ -210,7 +211,7 @@
       parent: refs.stage,
       width: W, height: H,
       backgroundColor: "#0D0221",
-      physics: { default: "arcade", arcade: { gravity: { y: 1800 }, debug: false } },
+      physics: { default: "arcade", arcade: { gravity: { y: 2200 }, debug: false } },
       scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_HORIZONTALLY },
       scene: [ensureScene()]
     };
@@ -321,6 +322,8 @@
           const grounded = this.player.body && (this.player.body.blocked.down || this.player.body.touching.down);
           if (this.holding && grounded) this.saltar();
           if (grounded) this.meImg.rotation = 0; else this.meImg.rotation += 9 * dt;
+          // caída rápida (Geometry Dash feel): al bajar suma gravedad extra
+          this.player.body.setGravityY(this.player.body.velocity.y > 0 ? FALL_EXTRA : 0);
 
           this.speed = Math.min(SPEED_CAP, BASE_SPEED + this.dist * SPEED_GROWTH);
           this.dist += this.speed * dt;
